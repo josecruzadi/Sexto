@@ -3,18 +3,18 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<meta name="theme-color" content="#047857">
+<meta name="theme-color" content="#3730A3">
 <title>Clínicas 6to Ciclo · UPAO</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.11.0/mammoth.browser.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <style>*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 :root{
-  --em:#047857;--em2:#0B9C74;--emd:#02513B;--eml:#059669;
-  --bg:#f6faf8;--card:#ffffff;--ink:#12201b;--grey:#5c6b64;--line:#e3efe9;
-  --okbg:#e7f6ef;--ok:#047857;--badbg:#fdecf0;--bad:#c0325c;
+  --em:#6D28D9;--em2:#4F46E5;--emd:#3730A3;--eml:#8B5CF6;
+  --bg:#f5f4fb;--card:#ffffff;--ink:#1e1b2e;--grey:#6b6480;--line:#e6e1f7;
+  --okbg:#eef0ff;--ok:#4338ca;--badbg:#fdecf0;--bad:#c0325c;
   --amber:#9a6400;--amberbg:#fdf5e3;
-  --shadow:0 2px 12px rgba(2,81,59,.07);--shadow2:0 6px 24px rgba(2,81,59,.13);
+  --shadow:0 2px 12px rgba(76,29,149,.10);--shadow2:0 6px 24px rgba(76,29,149,.16);
 }
 html{-webkit-text-size-adjust:100%}
 body{font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
@@ -155,6 +155,18 @@ textarea.resumen-ta:focus{outline:none;border-color:var(--em)}
 .toolbar button{flex:1;background:var(--card);border:1px solid var(--line);border-radius:10px;
   padding:9px;font-size:12px;font-weight:700;color:var(--em);cursor:pointer}
 .empty-hint{text-align:center;color:var(--grey);padding:30px 15px;font-size:13.5px;line-height:1.5}
+/* ===== Barra de progreso del ciclo (semana actual) ===== */
+.ciclo-progress{background:linear-gradient(135deg,var(--emd),var(--em) 70%,var(--eml));border-radius:16px;
+  padding:14px 16px;margin-bottom:12px;color:#fff;cursor:pointer;box-shadow:var(--shadow2)}
+.ciclo-progress .cp-top{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13.5px;font-weight:800}
+.ciclo-progress .cp-edit{font-size:11px;font-weight:700;opacity:.85;text-decoration:underline;white-space:nowrap}
+.ciclo-progress .cp-bar{height:9px;background:rgba(255,255,255,.28);border-radius:6px;overflow:hidden;margin-top:10px}
+.ciclo-progress .cp-bar>i{display:block;height:100%;background:#fff;border-radius:6px;transition:width .3s}
+.ciclo-progress .cp-sub{font-size:11.5px;opacity:.88;margin-top:7px}
+.week.current{border-left:4px solid var(--em);box-shadow:var(--shadow2)}
+.week-head .nowbadge{background:var(--okbg);color:var(--em);font-size:10px;font-weight:800;
+  padding:3px 8px;border-radius:8px;margin-left:6px;text-transform:uppercase}
+
 /* ===== Barra de acciones (home) ===== */
 .actionbar{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px}
 .actionbar .act{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:11px 8px;
@@ -172,7 +184,7 @@ textarea.resumen-ta:focus{outline:none;border-color:var(--em)}
 .grade-row{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
 .grade{border:none;border-radius:9px;padding:10px 4px;font-size:12px;font-weight:800;cursor:pointer;color:#fff}
 .grade.again{background:#c0325c}.grade.hard{background:#9a6400}
-.grade.good{background:var(--em)}.grade.easy{background:#0B9C74}
+.grade.good{background:var(--em)}.grade.easy{background:var(--em2)}
 
 /* ===== Examen / simulacro ===== */
 .opt.sel{border-color:var(--em);background:var(--okbg)}
@@ -517,14 +529,18 @@ let DATA = load();
 function load(){
   try{
     const raw = localStorage.getItem(STORAGE_KEY);
-    if(raw) return JSON.parse(raw);
+    if(raw){
+      const d = JSON.parse(raw);
+      if(!d.ciclo) d.ciclo = {inicio:'', totalSemanas:18};
+      return d;
+    }
   }catch(e){}
   return seedDefault();
 }
 function save(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(DATA)); }
 
 function seedDefault(){
-  return { courses: [
+  return { ciclo:{inicio:'', totalSemanas:18}, courses: [
     mkCourse('Semiología Médica','Clínico — Ancla del ciclo'),
     mkCourse('Médico Paciente I','Humanístico + Clínico'),
     mkCourse('Diagnóstico por Imágenes y Laboratorio Clínico','Técnica Diagnóstica'),
@@ -557,11 +573,49 @@ function openCourse(id){
   renderCourse(id);
 }
 
+// ============ PROGRESO DEL CICLO (semana actual) ============
+function getCicloInfo(){
+  const cfg = DATA.ciclo || {inicio:'', totalSemanas:18};
+  const total = cfg.totalSemanas || 18;
+  if(!cfg.inicio) return {hasStart:false, total};
+  const start = new Date(cfg.inicio+'T00:00:00');
+  const days = Math.floor((new Date() - start)/86400000);
+  const current = Math.max(1, Math.min(total, Math.floor(days/7)+1));
+  const pct = Math.round(100*current/total);
+  return {hasStart:true, current, total, pct};
+}
+function configCiclo(){
+  const cfg = DATA.ciclo || {inicio:'', totalSemanas:18};
+  const inicioStr = prompt('Fecha de inicio del ciclo (AAAA-MM-DD):', cfg.inicio || todayKey());
+  if(inicioStr===null) return;
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(inicioStr.trim())){ alert('Formato de fecha inválido. Usa AAAA-MM-DD.'); return; }
+  const totalStr = prompt('¿Cuántas semanas dura el ciclo en total?', String(cfg.totalSemanas||18));
+  if(totalStr===null) return;
+  const total = parseInt(totalStr)||18;
+  DATA.ciclo = {inicio: inicioStr.trim(), totalSemanas: total};
+  save(); renderHome();
+}
+function renderCicloProgress(){
+  const ci = getCicloInfo();
+  if(!ci.hasStart){
+    return `<div class="ciclo-progress" onclick="configCiclo()">
+      <div class="cp-top"><span>📅 Configura el inicio del ciclo</span><span class="cp-edit">✎ Configurar</span></div>
+      <div class="cp-sub">Toca aquí para ver en qué semana del curso vas</div>
+    </div>`;
+  }
+  return `<div class="ciclo-progress" onclick="configCiclo()">
+    <div class="cp-top"><span>📅 Semana ${ci.current} de ${ci.total}</span><span class="cp-edit">✎ Editar</span></div>
+    <div class="cp-bar"><i style="width:${ci.pct}%"></i></div>
+    <div class="cp-sub">${ci.current>=ci.total?'¡Última semana del ciclo!':'Vas en el '+ci.pct+'% del ciclo'}</div>
+  </div>`;
+}
+
 // ============ HOME ============
 function renderHome(){
   const el=document.getElementById('scr-home');
   const dueCount = getDueCards().length;
   el.innerHTML = `
+    ${renderCicloProgress()}
     <div class="actionbar">
       <div class="act primary" onclick="startReview()"><div class="ic">🔁</div><div class="lb">Repasar hoy</div><div class="cnt">${dueCount}</div></div>
       <div class="act" onclick="openExamSetup()"><div class="ic">🧪</div><div class="lb">Simulacro</div></div>
@@ -600,6 +654,7 @@ function addCourse(){
 // ============ VISTA DE CURSO ============
 function renderCourse(id){
   const c = DATA.courses.find(x=>x.id===id);
+  const cicloInfo = getCicloInfo();
   const el = document.getElementById('scr-course');
   el.innerHTML = `
     <button class="top backbtn" style="position:static;background:var(--em);color:#fff;border-radius:10px;
@@ -621,7 +676,7 @@ function renderCourse(id){
       <textarea class="rawtext" readonly>${escapeHtml(c.silaboText)}</textarea>
     </div>` : ''}
     <div id="weeks-list">
-      ${c.semanas.length ? c.semanas.sort((a,b)=>a.numero-b.numero).map(w=>renderWeekHTML(c.id,w)).join('') 
+      ${c.semanas.length ? c.semanas.sort((a,b)=>a.numero-b.numero).map(w=>renderWeekHTML(c.id,w,cicloInfo.hasStart&&w.numero===cicloInfo.current)).join('')
         : `<div class="empty-hint">Aún no hay semanas. Sube el sílabo en PDF o agrega una semana manual para armar el plan de estudio.</div>`}
     </div>
   `;
@@ -635,11 +690,11 @@ function escapeHtml(s){
   return (s||'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 }
 
-function renderWeekHTML(courseId, w){
-  return `<div class="week" id="week-${w.id}">
+function renderWeekHTML(courseId, w, isCurrent){
+  return `<div class="week ${isCurrent?'current':''}" id="week-${w.id}">
     <div class="week-head" onclick="toggleWeek('${w.id}')">
       <div>
-        <div class="wn">Semana ${w.numero}${w.titulo?' — '+w.titulo:''} ${w.examen?`<span class="exbadge">${w.examenTipo||'Examen'}</span>`:''}</div>
+        <div class="wn">Semana ${w.numero}${w.titulo?' — '+w.titulo:''} ${isCurrent?'<span class="nowbadge">📍 Esta semana</span>':''} ${w.examen?`<span class="exbadge">${w.examenTipo||'Examen'}</span>`:''}</div>
         <div class="wt">${w.temas.length} tema${w.temas.length==1?'':'s'} · ${w.banco.length} pregunta${w.banco.length==1?'':'s'}</div>
       </div>
     </div>
