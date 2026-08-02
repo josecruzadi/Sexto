@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#047857">
+<title>Clínicas 6to Ciclo · UPAO</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+:root{
+  --em:#047857;--em2:#0B9C74;--emd:#02513B;--eml:#059669;
+  --bg:#f6faf8;--card:#ffffff;--ink:#12201b;--grey:#5c6b64;--line:#e3efe9;
+  --okbg:#e7f6ef;--ok:#047857;--badbg:#fdecf0;--bad:#c0325c;
+  --amber:#9a6400;--amberbg:#fdf5e3;
+  --shadow:0 2px 12px rgba(2,81,59,.07);--shadow2:0 6px 24px rgba(2,81,59,.13);
+}
+html{-webkit-text-size-adjust:100%}
+body{font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+  background:var(--bg);color:var(--ink);line-height:1.5;font-size:15px;
+  padding-bottom:30px;overscroll-behavior-y:none}
+.wrap{max-width:680px;margin:0 auto;min-height:100vh}
+
+.top{position:sticky;top:0;z-index:40;background:linear-gradient(135deg,var(--emd),var(--em));
+  color:#fff;padding:16px 18px;box-shadow:var(--shadow)}
+.top .brand{font-size:11px;font-weight:800;letter-spacing:.15em;text-transform:uppercase;opacity:.85}
+.top .ttl{font-size:21px;font-weight:800;letter-spacing:-.01em;margin-top:2px}
+.top .sub{font-size:12px;opacity:.8;margin-top:2px}
+.top .backbtn{background:rgba(255,255,255,.18);border:none;color:#fff;border-radius:10px;
+  padding:7px 12px;font-size:12.5px;font-weight:700;cursor:pointer;margin-bottom:8px}
+
+.screen{display:none;padding:16px}
+.screen.active{display:block;animation:fade .2s}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+/* Lista de cursos */
+.courses{display:flex;flex-direction:column;gap:11px}
+.course-card{background:var(--card);border-radius:16px;padding:16px;box-shadow:var(--shadow);
+  border:1px solid var(--line);border-left:4px solid var(--em);cursor:pointer}
+.course-card:active{transform:scale(.98)}
+.course-card .cname{font-weight:800;font-size:15px;color:var(--emd)}
+.course-card .ctype{font-size:11.5px;color:var(--grey);margin-top:2px;font-style:italic}
+.course-card .cmeta{display:flex;gap:10px;margin-top:9px}
+.course-card .badge{font-size:11px;font-weight:700;padding:3px 9px;border-radius:8px}
+.course-card .badge.weeks{background:var(--okbg);color:var(--em)}
+.course-card .badge.silabo{background:var(--amberbg);color:var(--amber)}
+.course-card .badge.silabo.ok{background:var(--okbg);color:var(--em)}
+.addcourse{background:var(--card);border:2px dashed var(--line);border-radius:16px;
+  padding:18px;text-align:center;color:var(--grey);font-weight:700;cursor:pointer;font-size:13.5px}
+
+/* Curso detalle */
+.course-head{background:linear-gradient(135deg,var(--em),var(--eml));color:#fff;border-radius:16px;
+  padding:16px;margin-bottom:14px;box-shadow:var(--shadow2)}
+.course-head h2{font-size:17px;font-weight:800}
+.course-head p{font-size:12.5px;opacity:.9;margin-top:4px;line-height:1.4}
+.course-head .actions{display:flex;gap:8px;margin-top:12px}
+.course-head button{background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:10px;
+  padding:9px 12px;font-size:12.5px;font-weight:700;cursor:pointer;flex:1}
+
+.silabo-box{background:var(--card);border-radius:14px;padding:14px;margin-bottom:14px;
+  box-shadow:var(--shadow);border:1px solid var(--line)}
+.silabo-box .stitle{font-size:12px;font-weight:800;color:var(--em2);text-transform:uppercase;
+  letter-spacing:.06em;margin-bottom:8px}
+.silabo-box .fname{font-size:13px;color:var(--ink);background:var(--okbg);padding:8px 10px;
+  border-radius:8px;margin-bottom:8px;word-break:break-all}
+.silabo-box textarea.rawtext{width:100%;min-height:0;max-height:0;overflow:hidden;transition:max-height .3s;
+  border:1px solid var(--line);border-radius:8px;padding:8px;font-size:11.5px;font-family:monospace;color:var(--grey)}
+.silabo-box textarea.rawtext.show{max-height:200px;overflow:auto;margin-top:8px}
+.togglelink{font-size:11.5px;color:var(--em);font-weight:700;cursor:pointer;text-decoration:underline}
+
+/* Semanas */
+.week{background:var(--card);border-radius:14px;margin-bottom:10px;box-shadow:var(--shadow);
+  border:1px solid var(--line);overflow:hidden}
+.week-head{padding:13px 15px;display:flex;justify-content:space-between;align-items:center;cursor:pointer}
+.week-head .wn{font-weight:800;font-size:13.5px;color:var(--emd)}
+.week-head .wt{font-size:12.5px;color:var(--grey);margin-top:2px}
+.week-head .exbadge{background:var(--badbg);color:var(--bad);font-size:10px;font-weight:800;
+  padding:3px 8px;border-radius:8px;margin-left:6px;text-transform:uppercase}
+.week-body{display:none;padding:0 15px 15px;border-top:1px solid var(--line)}
+.week.open .week-body{display:block}
+.week.open .week-head{background:var(--okbg)}
+.temas-list{margin:10px 0;padding-left:18px;font-size:13px}
+.temas-list li{margin:3px 0}
+
+.subtabs{display:flex;gap:6px;margin:10px 0;background:var(--bg);border-radius:10px;padding:4px}
+.subtab{flex:1;text-align:center;padding:7px;border-radius:8px;font-size:12px;font-weight:700;
+  cursor:pointer;color:var(--grey)}
+.subtab.active{background:var(--em);color:#fff}
+.subpanel{display:none}
+.subpanel.active{display:block}
+
+textarea.resumen-ta{width:100%;min-height:100px;border:1.5px solid var(--line);border-radius:10px;
+  padding:10px;font-size:13.5px;font-family:inherit;line-height:1.5;resize:vertical}
+textarea.resumen-ta:focus{outline:none;border-color:var(--em)}
+.savebtn{margin-top:8px;background:var(--em);color:#fff;border:none;border-radius:9px;
+  padding:9px 14px;font-size:12.5px;font-weight:700;cursor:pointer}
+
+.qitem{background:var(--okbg);border-radius:10px;padding:10px 12px;margin-bottom:8px;font-size:12.5px}
+.qitem .qq{font-weight:700;color:var(--emd)}
+.qitem .qmeta{display:flex;gap:6px;margin-top:6px}
+.qitem .qmeta button{font-size:11px;border:none;border-radius:6px;padding:4px 8px;cursor:pointer;font-weight:700}
+.qitem .del{background:var(--badbg);color:var(--bad)}
+.addqbtn{width:100%;background:var(--card);border:1.5px dashed var(--em);color:var(--em);
+  border-radius:10px;padding:10px;font-weight:700;font-size:13px;cursor:pointer;margin-top:6px}
+.playbtn{width:100%;background:linear-gradient(135deg,var(--em),var(--eml));color:#fff;border:none;
+  border-radius:10px;padding:11px;font-weight:800;font-size:13.5px;cursor:pointer;margin-top:8px}
+
+/* Modal */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(2,20,15,.55);z-index:100;
+  align-items:flex-end;justify-content:center}
+.modal-overlay.show{display:flex}
+.modal{background:#fff;border-radius:18px 18px 0 0;padding:20px;width:100%;max-width:680px;
+  max-height:85vh;overflow-y:auto;animation:slideup .25s}
+@keyframes slideup{from{transform:translateY(30px);opacity:0}to{transform:none;opacity:1}}
+.modal h3{font-size:16px;font-weight:800;color:var(--emd);margin-bottom:12px}
+.modal label{font-size:12px;font-weight:700;color:var(--grey);display:block;margin:10px 0 5px}
+.modal input[type=text],.modal input[type=number],.modal textarea,.modal select{
+  width:100%;border:1.5px solid var(--line);border-radius:9px;padding:10px;font-size:14px;
+  font-family:inherit}
+.modal textarea{min-height:70px}
+.fileinput{border:2px dashed var(--line);border-radius:12px;padding:20px;text-align:center;
+  cursor:pointer;color:var(--grey);font-size:13px}
+.fileinput.drag{border-color:var(--em);background:var(--okbg)}
+.modal-actions{display:flex;gap:10px;margin-top:16px}
+.modal-actions button{flex:1;padding:12px;border-radius:10px;font-weight:800;font-size:13.5px;
+  cursor:pointer;border:none}
+.modal-actions .cancel{background:var(--bg);color:var(--grey);border:1px solid var(--line)}
+.modal-actions .confirm{background:var(--em);color:#fff}
+.closex{position:absolute;top:14px;right:16px;font-size:20px;color:var(--grey);cursor:pointer;
+  background:none;border:none}
+.modal-wrap{position:relative}
+
+/* Semanas editor (borrador tras subir sílabo) */
+.draftweek{background:var(--okbg);border-radius:10px;padding:10px;margin-bottom:8px}
+.draftweek input,.draftweek textarea{margin-top:6px}
+.draftweek .drow{display:flex;gap:8px;align-items:center}
+.draftweek .drow input[type=number]{width:60px}
+.draftweek .examchk{display:flex;align-items:center;gap:6px;font-size:12px;margin-top:6px}
+.rmweek{background:var(--badbg);color:var(--bad);border:none;border-radius:7px;padding:6px 9px;
+  font-size:11px;font-weight:700;cursor:pointer}
+
+/* Quiz jugable */
+.quiz-modal .qtext{font-size:15px;font-weight:600;margin:10px 0}
+.opt{background:#fff;border:1.5px solid var(--line);border-radius:12px;padding:12px 14px;
+  font-size:14px;cursor:pointer;margin-bottom:8px;display:flex;gap:10px}
+.opt.correct{border-color:var(--ok);background:var(--okbg)}
+.opt.wrong{border-color:var(--bad);background:var(--badbg)}
+.opt.disabled{pointer-events:none}
+.exp-box{background:var(--okbg);border-left:4px solid var(--em);border-radius:0 10px 10px 0;
+  padding:10px 12px;font-size:13px;margin-top:10px;display:none}
+.exp-box.show{display:block}
+
+.toolbar{display:flex;gap:8px;margin-bottom:14px}
+.toolbar button{flex:1;background:var(--card);border:1px solid var(--line);border-radius:10px;
+  padding:9px;font-size:12px;font-weight:700;color:var(--em);cursor:pointer}
+.empty-hint{text-align:center;color:var(--grey);padding:30px 15px;font-size:13.5px;line-height:1.5}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div class="brand">UPAO · Medicina Humana</div>
+    <div class="ttl">🩺 6to Ciclo — Clínicas</div>
+    <div class="sub">Sílabos, plan semanal, resúmenes y bancos por curso</div>
+  </div>
+
+  <div id="scr-home" class="screen active"></div>
+  <div id="scr-course" class="screen"></div>
+</div>
+
+<!-- MODAL: Subir sílabo -->
+<div class="modal-overlay" id="modal-silabo">
+  <div class="modal modal-wrap">
+    <button class="closex" onclick="closeSilaboModal()">✕</button>
+    <h3>📄 Subir sílabo</h3>
+    <input type="hidden" id="silabo-course">
+    <label>Sube el PDF del sílabo</label>
+    <label class="fileinput" for="silabo-file-input">
+      Toca para elegir el archivo PDF
+    </label>
+    <input type="file" id="silabo-file-input" accept="application/pdf" style="display:none" onchange="handlePdfFile(this)">
+    <div id="silabo-filename" style="font-size:12px;color:var(--grey);margin-top:8px"></div>
+    <label>O pega el texto del sílabo aquí (edítalo si hace falta)</label>
+    <textarea id="silabo-pasted" style="min-height:140px;font-family:monospace;font-size:11.5px"></textarea>
+    <div class="modal-actions">
+      <button class="cancel" onclick="closeSilaboModal()">Cancelar</button>
+      <button class="confirm" onclick="confirmSilabo()">Analizar sílabo →</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Revisar borrador de semanas -->
+<div class="modal-overlay" id="modal-draft">
+  <div class="modal modal-wrap">
+    <button class="closex" onclick="closeDraftModal()">✕</button>
+    <h3>🗓️ Revisa y ajusta las semanas</h3>
+    <p style="font-size:12px;color:var(--grey);margin-bottom:10px">
+      Detecté esto del sílabo. Corrige lo que haga falta antes de guardar — la detección automática no es perfecta.
+    </p>
+    <input type="hidden" id="draft-course">
+    <div id="draft-list"></div>
+    <button class="addqbtn" onclick="addDraftWeek()">+ Agregar semana</button>
+    <div class="modal-actions">
+      <button class="cancel" onclick="closeDraftModal()">Cancelar</button>
+      <button class="confirm" onclick="confirmDraft()">Guardar plan de estudio</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Agregar pregunta -->
+<div class="modal-overlay" id="modal-q">
+  <div class="modal modal-wrap">
+    <button class="closex" onclick="closeQModal()">✕</button>
+    <h3>➕ Nueva pregunta</h3>
+    <input type="hidden" id="qmodal-course"><input type="hidden" id="qmodal-week">
+    <label>Pregunta</label>
+    <textarea id="qmodal-q" placeholder="Escribe la pregunta..."></textarea>
+    <label>Opción A</label><input type="text" id="qmodal-a">
+    <label>Opción B</label><input type="text" id="qmodal-b">
+    <label>Opción C</label><input type="text" id="qmodal-c">
+    <label>Opción D</label><input type="text" id="qmodal-d">
+    <label>Respuesta correcta</label>
+    <select id="qmodal-ans">
+      <option value="0">A</option><option value="1">B</option><option value="2">C</option><option value="3">D</option>
+    </select>
+    <label>Explicación (opcional)</label>
+    <textarea id="qmodal-exp" placeholder="Por qué es correcta..."></textarea>
+    <div class="modal-actions">
+      <button class="cancel" onclick="closeQModal()">Cancelar</button>
+      <button class="confirm" onclick="confirmAddQ()">Guardar pregunta</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Quiz jugable -->
+<div class="modal-overlay" id="modal-quiz">
+  <div class="modal modal-wrap quiz-modal">
+    <button class="closex" onclick="closeQuizModal()">✕</button>
+    <h3>🎯 Practicar semana</h3>
+    <div id="quiz-body"></div>
+  </div>
+</div>
+
+<!-- Input oculto para importar JSON -->
+<input type="file" id="import-file-input" accept="application/json" style="display:none" onchange="handleImportFile(this)">
+
+<script>
+// ============ ESTADO Y PERSISTENCIA ============
+const STORAGE_KEY = 'clinicas6_data_v1';
+let DATA = load();
+
+function load(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(raw) return JSON.parse(raw);
+  }catch(e){}
+  return seedDefault();
+}
+function save(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(DATA)); }
+
+function seedDefault(){
+  return { courses: [
+    mkCourse('Semiología Médica','Clínico — Ancla del ciclo'),
+    mkCourse('Médico Paciente I','Humanístico + Clínico'),
+    mkCourse('Diagnóstico por Imágenes y Laboratorio Clínico','Técnica Diagnóstica'),
+    mkCourse('Informática Médica y Bioestadística','Herramienta Transversal'),
+    mkCourse('Fisiopatología','Integrador Teórico'),
+  ]};
+}
+function mkCourse(nombre,tipo){
+  return {id:'c'+Math.random().toString(36).slice(2,9), nombre, tipo, silaboFileName:'', silaboText:'', semanas:[]};
+}
+function mkWeek(numero,titulo,temas,examen,examenTipo){
+  return {id:'w'+Math.random().toString(36).slice(2,9), numero, titulo:titulo||'', temas:temas||[],
+    examen:!!examen, examenTipo:examenTipo||'', resumen:'', banco:[]};
+}
+function mkQ(q,opts,ans,exp){
+  return {id:'q'+Math.random().toString(36).slice(2,9), q, opts, ans, exp:exp||''};
+}
+
+// ============ NAVEGACIÓN ============
+let currentCourseId=null, currentWeekId=null;
+function nav(screen){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('scr-'+screen).classList.add('active');
+  window.scrollTo(0,0);
+  if(screen==='home') renderHome();
+}
+function openCourse(id){
+  currentCourseId=id;
+  nav('course');
+  renderCourse(id);
+}
+
+// ============ HOME ============
+function renderHome(){
+  const el=document.getElementById('scr-home');
+  el.innerHTML = `
+    <div class="toolbar">
+      <button onclick="openExportModal()">⬇ Exportar</button>
+      <button onclick="openImportModal()">⬆ Importar</button>
+    </div>
+    <div class="courses">
+      ${DATA.courses.map(c=>{
+        const nsem = c.semanas.length;
+        const hassil = c.silaboFileName ? 'ok' : '';
+        return `<div class="course-card" onclick="openCourse('${c.id}')">
+          <div class="cname">${c.nombre}</div>
+          <div class="ctype">${c.tipo||''}</div>
+          <div class="cmeta">
+            <span class="badge weeks">${nsem} semana${nsem==1?'':'s'}</span>
+            <span class="badge silabo ${hassil}">${hassil?'📄 Sílabo cargado':'Sin sílabo'}</span>
+          </div>
+        </div>`;
+      }).join('')}
+      <div class="addcourse" onclick="addCourse()">+ Agregar curso</div>
+    </div>
+    <div style="height:10px"></div>
+  `;
+}
+function addCourse(){
+  const nombre = prompt('Nombre del curso:');
+  if(!nombre) return;
+  DATA.courses.push(mkCourse(nombre,''));
+  save(); renderHome();
+}
+
+// ============ VISTA DE CURSO ============
+function renderCourse(id){
+  const c = DATA.courses.find(x=>x.id===id);
+  const el = document.getElementById('scr-course');
+  el.innerHTML = `
+    <button class="top backbtn" style="position:static;background:var(--em);color:#fff;border-radius:10px;
+      padding:8px 14px;border:none;font-weight:700;cursor:pointer;margin-bottom:12px" onclick="nav('home')">← Cursos</button>
+    <div class="course-head">
+      <h2>${c.nombre}</h2>
+      <p>${c.tipo||''}</p>
+      <div class="actions">
+        <button onclick="openSilaboModal('${c.id}')">📄 ${c.silaboFileName?'Reemplazar sílabo':'Subir sílabo'}</button>
+        <button onclick="addWeekManual('${c.id}')">+ Semana manual</button>
+      </div>
+    </div>
+    ${c.silaboFileName ? `
+    <div class="silabo-box">
+      <div class="stitle">Sílabo cargado</div>
+      <div class="fname">📎 ${c.silaboFileName}</div>
+      <span class="togglelink" onclick="toggleRaw(this)">Ver texto extraído</span>
+      <textarea class="rawtext" readonly>${escapeHtml(c.silaboText)}</textarea>
+    </div>` : ''}
+    <div id="weeks-list">
+      ${c.semanas.length ? c.semanas.sort((a,b)=>a.numero-b.numero).map(w=>renderWeekHTML(c.id,w)).join('') 
+        : `<div class="empty-hint">Aún no hay semanas. Sube el sílabo en PDF o agrega una semana manual para armar el plan de estudio.</div>`}
+    </div>
+  `;
+}
+function toggleRaw(el){
+  const ta = el.nextElementSibling;
+  ta.classList.toggle('show');
+  el.textContent = ta.classList.contains('show') ? 'Ocultar texto extraído' : 'Ver texto extraído';
+}
+function escapeHtml(s){
+  return (s||'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+
+function renderWeekHTML(courseId, w){
+  return `<div class="week" id="week-${w.id}">
+    <div class="week-head" onclick="toggleWeek('${w.id}')">
+      <div>
+        <div class="wn">Semana ${w.numero}${w.titulo?' — '+w.titulo:''} ${w.examen?`<span class="exbadge">${w.examenTipo||'Examen'}</span>`:''}</div>
+        <div class="wt">${w.temas.length} tema${w.temas.length==1?'':'s'} · ${w.banco.length} pregunta${w.banco.length==1?'':'s'}</div>
+      </div>
+    </div>
+    <div class="week-body">
+      <ul class="temas-list">${w.temas.map(t=>`<li>${escapeHtml(t)}</li>`).join('')}</ul>
+      <div class="subtabs">
+        <div class="subtab active" onclick="switchSub(this,'${w.id}','resumen')">📝 Resumen</div>
+        <div class="subtab" onclick="switchSub(this,'${w.id}','banco')">📚 Banco (${w.banco.length})</div>
+      </div>
+      <div class="subpanel active" id="sub-resumen-${w.id}">
+        <textarea class="resumen-ta" id="resumen-ta-${w.id}" placeholder="Escribe o pega aquí tu resumen de esta semana...">${escapeHtml(w.resumen)}</textarea>
+        <button class="savebtn" onclick="saveResumen('${courseId}','${w.id}')">Guardar resumen</button>
+      </div>
+      <div class="subpanel" id="sub-banco-${w.id}">
+        <div id="qlist-${w.id}">${renderQList(courseId,w)}</div>
+        <button class="addqbtn" onclick="openQModal('${courseId}','${w.id}')">+ Agregar pregunta</button>
+        ${w.banco.length? `<button class="playbtn" onclick="playWeekQuiz('${courseId}','${w.id}')">▶ Practicar esta semana (${w.banco.length})</button>`:''}
+      </div>
+      <div style="margin-top:12px;text-align:right">
+        <button class="rmweek" onclick="deleteWeek('${courseId}','${w.id}')">Eliminar semana</button>
+      </div>
+    </div>
+  </div>`;
+}
+function renderQList(courseId,w){
+  if(!w.banco.length) return '';
+  return w.banco.map(q=>`<div class="qitem">
+    <div class="qq">${escapeHtml(q.q)}</div>
+    <div class="qmeta">
+      <button class="del" onclick="deleteQ('${courseId}','${w.id}','${q.id}')">Eliminar</button>
+    </div>
+  </div>`).join('');
+}
+function toggleWeek(wid){
+  document.getElementById('week-'+wid).classList.toggle('open');
+}
+function switchSub(el, wid, which){
+  const parent = el.parentElement;
+  parent.querySelectorAll('.subtab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  const body = el.closest('.week-body');
+  body.querySelectorAll('.subpanel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('sub-'+which+'-'+wid).classList.add('active');
+}
+function saveResumen(courseId, wid){
+  const c = DATA.courses.find(x=>x.id===courseId);
+  const w = c.semanas.find(x=>x.id===wid);
+  w.resumen = document.getElementById('resumen-ta-'+wid).value;
+  save();
+  alert('Resumen guardado ✓');
+}
+function deleteWeek(courseId, wid){
+  if(!confirm('¿Eliminar esta semana y todo su contenido?')) return;
+  const c = DATA.courses.find(x=>x.id===courseId);
+  c.semanas = c.semanas.filter(x=>x.id!==wid);
+  save(); renderCourse(courseId);
+}
+function deleteQ(courseId, wid, qid){
+  const c = DATA.courses.find(x=>x.id===courseId);
+  const w = c.semanas.find(x=>x.id===wid);
+  w.banco = w.banco.filter(x=>x.id!==qid);
+  save(); renderCourse(courseId);
+}
+function addWeekManual(courseId){
+  const c = DATA.courses.find(x=>x.id===courseId);
+  const nextNum = c.semanas.length ? Math.max(...c.semanas.map(w=>w.numero))+1 : 1;
+  const titulo = prompt('Título de la semana '+nextNum+' (opcional):') || '';
+  const temasStr = prompt('Temas (separados por coma):') || '';
+  const temas = temasStr.split(',').map(t=>t.trim()).filter(Boolean);
+  c.semanas.push(mkWeek(nextNum, titulo, temas, false, ''));
+  save(); renderCourse(courseId);
+}
+
+// ============ MODAL: PREGUNTAS (banco) ============
+function openQModal(courseId, wid){
+  document.getElementById('qmodal-course').value=courseId;
+  document.getElementById('qmodal-week').value=wid;
+  document.getElementById('qmodal-q').value='';
+  document.getElementById('qmodal-a').value='';
+  document.getElementById('qmodal-b').value='';
+  document.getElementById('qmodal-c').value='';
+  document.getElementById('qmodal-d').value='';
+  document.getElementById('qmodal-ans').value='0';
+  document.getElementById('qmodal-exp').value='';
+  document.getElementById('modal-q').classList.add('show');
+}
+function closeQModal(){ document.getElementById('modal-q').classList.remove('show'); }
+function confirmAddQ(){
+  const courseId = document.getElementById('qmodal-course').value;
+  const wid = document.getElementById('qmodal-week').value;
+  const q = document.getElementById('qmodal-q').value.trim();
+  const opts = ['a','b','c','d'].map(k=>document.getElementById('qmodal-'+k).value.trim());
+  const ans = parseInt(document.getElementById('qmodal-ans').value);
+  const exp = document.getElementById('qmodal-exp').value.trim();
+  if(!q || opts.some(o=>!o)){ alert('Completa la pregunta y las 4 opciones'); return; }
+  const c = DATA.courses.find(x=>x.id===courseId);
+  const w = c.semanas.find(x=>x.id===wid);
+  w.banco.push(mkQ(q,opts,ans,exp));
+  save();
+  closeQModal();
+  renderCourse(courseId);
+  // reabrir la semana
+  setTimeout(()=>{ const wk=document.getElementById('week-'+wid); if(wk) wk.classList.add('open'); },50);
+}
+
+// ============ QUIZ JUGABLE ============
+let QUIZ={list:[],i:0};
+function playWeekQuiz(courseId, wid){
+  const c = DATA.courses.find(x=>x.id===courseId);
+  const w = c.semanas.find(x=>x.id===wid);
+  QUIZ={list:w.banco.slice(),i:0};
+  document.getElementById('modal-quiz').classList.add('show');
+  renderQuizQ();
+}
+function renderQuizQ(){
+  const box = document.getElementById('quiz-body');
+  if(QUIZ.i >= QUIZ.list.length){
+    box.innerHTML = `<div style="text-align:center;padding:20px">
+      <div style="font-size:40px">✅</div>
+      <div style="font-weight:800;margin-top:10px">¡Completaste el banco de esta semana!</div>
+      <button class="modal-actions confirm" style="margin-top:16px;width:100%;padding:12px;border-radius:10px;border:none;background:var(--em);color:#fff;font-weight:800" onclick="closeQuizModal()">Cerrar</button>
+    </div>`;
+    return;
+  }
+  const q = QUIZ.list[QUIZ.i];
+  box.innerHTML = `
+    <div style="font-size:12px;color:var(--grey);font-weight:700">Pregunta ${QUIZ.i+1}/${QUIZ.list.length}</div>
+    <div class="qtext">${escapeHtml(q.q)}</div>
+    ${q.opts.map((o,idx)=>`<div class="opt" onclick="answerQuiz(${idx})">${['A','B','C','D'][idx]}) ${escapeHtml(o)}</div>`).join('')}
+    <div class="exp-box" id="quiz-exp">${escapeHtml(q.exp)}</div>
+  `;
+}
+function answerQuiz(idx){
+  const q = QUIZ.list[QUIZ.i];
+  document.querySelectorAll('#quiz-body .opt').forEach((o,i)=>{
+    o.classList.add('disabled');
+    if(i===q.ans) o.classList.add('correct');
+    else if(i===idx) o.classList.add('wrong');
+  });
+  document.getElementById('quiz-exp').classList.add('show');
+  const box=document.getElementById('quiz-body');
+  const nextBtn=document.createElement('button');
+  nextBtn.className='playbtn'; nextBtn.textContent = (QUIZ.i+1<QUIZ.list.length)?'Siguiente →':'Ver resultado';
+  nextBtn.onclick=()=>{QUIZ.i++; renderQuizQ();};
+  box.appendChild(nextBtn);
+}
+function closeQuizModal(){ document.getElementById('modal-quiz').classList.remove('show'); }
+
+// ============ MODAL: SUBIR SÍLABO ============
+function openSilaboModal(courseId){
+  document.getElementById('silabo-course').value = courseId;
+  document.getElementById('silabo-filename').textContent='';
+  document.getElementById('silabo-pasted').value='';
+  document.getElementById('silabo-file-input').value='';
+  document.getElementById('modal-silabo').classList.add('show');
+}
+function closeSilaboModal(){ document.getElementById('modal-silabo').classList.remove('show'); }
+
+async function handlePdfFile(input){
+  const file = input.files[0];
+  if(!file) return;
+  document.getElementById('silabo-filename').textContent = '📎 '+file.name+' — extrayendo texto...';
+  try{
+    const buf = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({data:buf}).promise;
+    let text='';
+    for(let p=1;p<=pdf.numPages;p++){
+      const page = await pdf.getPage(p);
+      const content = await page.getTextContent();
+      text += content.items.map(it=>it.str).join(' ') + '\n';
+    }
+    document.getElementById('silabo-pasted').value = text;
+    document.getElementById('silabo-filename').textContent = '📎 '+file.name+' — '+pdf.numPages+' página(s) extraídas ✓';
+  }catch(e){
+    document.getElementById('silabo-filename').textContent = 'Error al leer el PDF. Intenta pegar el texto manualmente.';
+    console.error(e);
+  }
+}
+
+function confirmSilabo(){
+  const courseId = document.getElementById('silabo-course').value;
+  const text = document.getElementById('silabo-pasted').value;
+  const fname = document.getElementById('silabo-file-input').files[0]?.name || 'Texto pegado manualmente';
+  if(!text.trim()){ alert('Sube un PDF o pega el texto del sílabo'); return; }
+  const c = DATA.courses.find(x=>x.id===courseId);
+  c.silaboText = text;
+  c.silaboFileName = fname;
+  const draft = parseWeeksFromText(text);
+  save();
+  closeSilaboModal();
+  openDraftModal(courseId, draft);
+}
+
+// ============ PARSER HEURÍSTICO ============
+function parseWeeksFromText(text){
+  // pdf.js suele extraer todo el texto de una página en un solo bloque sin saltos de línea reales.
+  // Insertamos marcadores de línea antes de cada palabra clave para poder procesarlas por separado.
+  let prepped = text
+    .replace(/(sem(?:ana|\.)?\s*n?[°º]?\s*\d)/gi, '\n$1')
+    .replace(/(tema\s*\d+)/gi, '\n$1')
+    .replace(/(unidad\s*[ivxlcdm\d]+)/gi, '\n$1')
+    .replace(/(examen\s*(parcial|final|sustitutorio)?)/gi, '\n$1')
+    .replace(/(evaluaci[oó]n\s*(parcial|final|continua)?)/gi, '\n$1');
+  const lines = prepped.split(/\n/).map(l=>l.trim()).filter(Boolean);
+
+  const weeks = {};
+  const weekRegex = /sem(?:ana|\.)?\s*(?:n[°º]?\s*)?(\d{1,2})(?:\s*[-–a]\s*(\d{1,2}))?/i;
+  const examRegex = /(examen|evaluaci[oó]n)\s*(parcial|final|sustitutorio|continua)?/i;
+  const temaRegex = /tema\s*\d+\s*[:\.]?\s*(.*)/i;
+  const unidadRegex = /unidad\s*([ivxlcdm\d]+)\s*[:\.]?\s*(.*)/i;
+
+  let currentWeeks=[1];
+  let order=[];
+  for(const line of lines){
+    const wm = line.match(weekRegex);
+    if(wm){
+      const start=parseInt(wm[1]); const end = wm[2]?parseInt(wm[2]):start;
+      currentWeeks=[];
+      for(let n=start;n<=end;n++) currentWeeks.push(n);
+      currentWeeks.forEach(n=>{ if(!weeks[n]){ weeks[n]={numero:n,titulo:'',temas:[],examen:false,examenTipo:''}; order.push(n);} });
+      // Esta misma línea puede traer texto descriptivo tras "SEMANA X:" — lo guardamos como título si no hay uno aún
+      const rest = line.replace(weekRegex,'').replace(/^[:\.\-–\s]+/,'').trim();
+      if(rest && rest.length>2 && rest.length<80){
+        currentWeeks.forEach(n=>{ if(!weeks[n].titulo) weeks[n].titulo = rest; });
+      }
+      continue;
+    }
+    const em = line.match(examRegex);
+    const tm = line.match(temaRegex);
+    const um = line.match(unidadRegex);
+    currentWeeks.forEach(n=>{
+      if(!weeks[n]){ weeks[n]={numero:n,titulo:'',temas:[],examen:false,examenTipo:''}; order.push(n); }
+      if(em){ weeks[n].examen=true; weeks[n].examenTipo = em[2]?capitalize(em[2]):'Examen'; }
+      if(tm && tm[1] && tm[1].length>2 && tm[1].length<160){ weeks[n].temas.push(tm[1].trim()); }
+      if(um && um[2] && um[2].length>2 && !weeks[n].titulo){ weeks[n].titulo = um[2].trim().slice(0,60); }
+    });
+  }
+  let list = Object.values(weeks).sort((a,b)=>a.numero-b.numero);
+  // Fallback: si no detectó nada útil, crear semanas genéricas 1-16 vacías para que el usuario las llene
+  if(list.length===0 || list.every(w=>w.temas.length===0)){
+    list = [];
+    for(let n=1;n<=16;n++) list.push({numero:n,titulo:'',temas:[],examen:false,examenTipo:''});
+  }
+  return list;
+}
+function capitalize(s){ return s.charAt(0).toUpperCase()+s.slice(1).toLowerCase(); }
+
+// ============ MODAL: BORRADOR DE SEMANAS (revisar tras subir sílabo) ============
+let DRAFT=[];
+function openDraftModal(courseId, draft){
+  DRAFT = draft;
+  document.getElementById('draft-course').value = courseId;
+  renderDraftList();
+  document.getElementById('modal-draft').classList.add('show');
+}
+function renderDraftList(){
+  const el = document.getElementById('draft-list');
+  el.innerHTML = DRAFT.map((w,idx)=>`
+    <div class="draftweek">
+      <div class="drow">
+        <input type="number" value="${w.numero}" onchange="DRAFT[${idx}].numero=parseInt(this.value)||${w.numero}">
+        <input type="text" placeholder="Título de la semana" value="${escapeHtml(w.titulo)}" style="flex:1" onchange="DRAFT[${idx}].titulo=this.value">
+        <button class="rmweek" onclick="removeDraft(${idx})">✕</button>
+      </div>
+      <textarea placeholder="Temas (uno por línea)" onchange="DRAFT[${idx}].temas=this.value.split('\\n').map(s=>s.trim()).filter(Boolean)">${w.temas.join('\n')}</textarea>
+      <div class="examchk">
+        <input type="checkbox" id="ex-${idx}" ${w.examen?'checked':''} onchange="DRAFT[${idx}].examen=this.checked">
+        <label for="ex-${idx}">Marcar como semana de examen</label>
+      </div>
+    </div>
+  `).join('');
+}
+function removeDraft(idx){ DRAFT.splice(idx,1); renderDraftList(); }
+function addDraftWeek(){
+  const nextNum = DRAFT.length ? Math.max(...DRAFT.map(w=>w.numero))+1 : 1;
+  DRAFT.push({numero:nextNum,titulo:'',temas:[],examen:false,examenTipo:'Examen'});
+  renderDraftList();
+}
+function closeDraftModal(){ document.getElementById('modal-draft').classList.remove('show'); }
+function confirmDraft(){
+  const courseId = document.getElementById('draft-course').value;
+  const c = DATA.courses.find(x=>x.id===courseId);
+  c.semanas = DRAFT.map(w=>mkWeek(w.numero, w.titulo, w.temas, w.examen, w.examenTipo||'Examen'));
+  save();
+  closeDraftModal();
+  renderCourse(courseId);
+}
+
+// ============ EXPORTAR / IMPORTAR ============
+function openExportModal(){
+  const blob = new Blob([JSON.stringify(DATA,null,2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'clinicas-6to-ciclo-backup.json';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+function openImportModal(){
+  document.getElementById('import-file-input').click();
+}
+function handleImportFile(input){
+  const file = input.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e=>{
+    try{
+      const parsed = JSON.parse(e.target.result);
+      if(!parsed.courses) throw new Error('Formato inválido');
+      if(confirm('Esto reemplazará todos tus datos actuales. ¿Continuar?')){
+        DATA = parsed; save(); renderHome();
+        alert('Datos importados ✓');
+      }
+    }catch(err){ alert('Archivo inválido'); }
+  };
+  reader.readAsText(file);
+}
+
+// ============ INIT ============
+renderHome();
+
+</script>
+</body>
+</html>
