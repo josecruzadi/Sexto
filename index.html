@@ -559,55 +559,114 @@ function confirmSilabo(){
   openDraftModal(courseId, draft);
 }
 
-// ============ PARSER HEURÍSTICO ============
-function parseWeeksFromText(text){
-  // pdf.js suele extraer todo el texto de una página en un solo bloque sin saltos de línea reales.
-  // Insertamos marcadores de línea antes de cada palabra clave para poder procesarlas por separado.
-  let prepped = text
-    .replace(/(sem(?:ana|\.)?\s*n?[°º]?\s*\d)/gi, '\n$1')
-    .replace(/(tema\s*\d+)/gi, '\n$1')
-    .replace(/(unidad\s*[ivxlcdm\d]+)/gi, '\n$1')
-    .replace(/(examen\s*(parcial|final|sustitutorio)?)/gi, '\n$1')
-    .replace(/(evaluaci[oó]n\s*(parcial|final|continua)?)/gi, '\n$1');
-  const lines = prepped.split(/\n/).map(l=>l.trim()).filter(Boolean);
+// ============ PARSER HEURÍSTICO (calibrado a sílabos UPAO reales) ============
+// pdf.js entrega el texto de cada página en un solo bloque, con espacios dobles y
+// columnas ("Contenidos Temáticos" / "Actividades de Aprendizaje") mezcladas.
+// Estrategia: trocear por cada cabecera "Semana N" y, dentro de cada bloque,
+// quedarnos solo con la parte temática (Tema / caso clínico), recortando la
+// columna de actividades y el ruido de pie de página.
 
-  const weeks = {};
-  const weekRegex = /sem(?:ana|\.)?\s*(?:n[°º]?\s*)?(\d{1,2})(?:\s*[-–a]\s*(\d{1,2}))?/i;
-  const examRegex = /(examen|evaluaci[oó]n)\s*(parcial|final|sustitutorio|continua)?/i;
-  const temaRegex = /tema\s*\d+\s*[:\.]?\s*(.*)/i;
-  const unidadRegex = /unidad\s*([ivxlcdm\d]+)\s*[:\.]?\s*(.*)/i;
+function capWords(s){ return s.toLowerCase().replace(/\b\w/g, c=>c.toUpperCase()); }
 
-  let currentWeeks=[1];
-  let order=[];
-  for(const line of lines){
-    const wm = line.match(weekRegex);
-    if(wm){
-      const start=parseInt(wm[1]); const end = wm[2]?parseInt(wm[2]):start;
-      currentWeeks=[];
-      for(let n=start;n<=end;n++) currentWeeks.push(n);
-      currentWeeks.forEach(n=>{ if(!weeks[n]){ weeks[n]={numero:n,titulo:'',temas:[],examen:false,examenTipo:''}; order.push(n);} });
-      // Esta misma línea puede traer texto descriptivo tras "SEMANA X:" — lo guardamos como título si no hay uno aún
-      const rest = line.replace(weekRegex,'').replace(/^[:\.\-–\s]+/,'').trim();
-      if(rest && rest.length>2 && rest.length<80){
-        currentWeeks.forEach(n=>{ if(!weeks[n].titulo) weeks[n].titulo = rest; });
-      }
-      continue;
-    }
-    const em = line.match(examRegex);
-    const tm = line.match(temaRegex);
-    const um = line.match(unidadRegex);
-    currentWeeks.forEach(n=>{
-      if(!weeks[n]){ weeks[n]={numero:n,titulo:'',temas:[],examen:false,examenTipo:''}; order.push(n); }
-      if(em){ weeks[n].examen=true; weeks[n].examenTipo = em[2]?capitalize(em[2]):'Examen'; }
-      if(tm && tm[1] && tm[1].length>2 && tm[1].length<160){ weeks[n].temas.push(tm[1].trim()); }
-      if(um && um[2] && um[2].length>2 && !weeks[n].titulo){ weeks[n].titulo = um[2].trim().slice(0,60); }
-    });
+function cleanTopic(s){
+  if(!s) return '';
+  let v = s.replace(/\s+/g,' ')
+           .replace(/^[\s•·\-–—:.,]+/,'')
+           .replace(/[\s•·\-–—:,]+$/,'')
+           .replace(/\s*\.\s*$/,'')
+           .trim();
+  v = v.split(/\bCoordinador\b/i)[0].trim();      // corta "Coordinador Dra..."
+  v = v.replace(/[.\s]+$/,'').trim();
+  if(v.length < 3) return '';
+  if(/^(sesiones de clase|actividades no presenciales.*|role playing.*)$/i.test(v)) return '';
+  return v;
+}
+
+function extractWeekContent(block){
+  // 0) normaliza espacios (el PDF trae espacios dobles que rompen cortes literales)
+  block = block.replace(/\s+/g,' ').trim();
+
+  // 1) ¿es semana de examen?
+  const exam = block.match(/EXAMEN\s+(PARCIAL|FINAL|SUSTITUTORIO|DE\s+APLAZADOS|DE\s+RECUPERACI[ÓO]N)/i);
+  if(exam){
+    const tipo = capWords(exam[1].replace(/\s+/g,' '));
+    return {temas:[], examen:true, examenTipo:'Examen '+tipo, titulo:'Examen '+tipo};
   }
-  let list = Object.values(weeks).sort((a,b)=>a.numero-b.numero);
-  // Fallback: si no detectó nada útil, crear semanas genéricas 1-16 vacías para que el usuario las llene
-  if(list.length===0 || list.every(w=>w.temas.length===0)){
-    list = [];
-    for(let n=1;n<=16;n++) list.push({numero:n,titulo:'',temas:[],examen:false,examenTipo:''});
+
+  // 2) recorta la columna "Actividades de Aprendizaje" (todo lo posterior es boilerplate)
+  let c = block.split(/El estudiante discute|Participa de la Videoconferencia|Comparte sus productos|En las horas de PR[ÁA]CTICA|Actividades de Aprendizaje|Demuestra conoc|Realiza planteamiento/i)[0];
+  // ruido de pie de página / docsity / encabezado de tabla repetido
+  c = c.replace(/Document shared on[\s\S]*/i,'')
+       .replace(/N[°º]\s*Semanas[\s\S]*?Aprendizaje/gi,' ')
+       .replace(/Actividades no presenciales durante\s+la\s+semana\s*:?/gi,' ')
+       .replace(/Sesiones de clase/gi,' ')
+       .replace(/\s+/g,' ').trim();
+
+  // 3) trocea en segmentos usando viñetas y etiquetas como fronteras
+  const seg = c.replace(/•/g,' ‖ ')
+               .replace(/(Tema\s*\d*\s*:)/gi,' ‖ $1')
+               .replace(/((?:Discusi[oó]n|Desarrollo)\s+de\s+caso\s+cl[ií]nico)/gi,' ‖ $1');
+  const parts = seg.split('‖').map(s=>s.trim()).filter(Boolean);
+
+  const temas = [];
+  for(const p of parts){
+    let mm;
+    if((mm = p.match(/^Tema\s*\d*\s*:\s*(.*)$/i))){
+      const v = cleanTopic(mm[1]);
+      if(v) temas.push(v);
+    }else if(/^(?:Discusi[oó]n|Desarrollo)\s+de\s+caso\s+cl[ií]nico/i.test(p)){
+      let caso = p.replace(/^(?:Discusi[oó]n|Desarrollo)\s+de\s+caso\s+cl[ií]nico\s*/i,'')
+                  .replace(/^:\s*/,'')
+                  .replace(/^de\s+paciente\s+con\s+/i,'')
+                  .replace(/^de\s+/i,'');
+      caso = cleanTopic(caso);
+      if(caso) temas.push('Caso clínico: '+caso);
+    }
+  }
+  // 4) fallback: sin etiquetas pero con texto útil
+  if(temas.length===0){
+    const v = cleanTopic(c);
+    if(v && v.length<160) temas.push(v);
+  }
+
+  const titulo = temas.length ? temas[0].replace(/^Caso clínico:\s*/i,'') : '';
+  return {temas, examen:false, examenTipo:'', titulo:titulo.slice(0,70)};
+}
+
+function parseWeeksFromText(text){
+  // Cabeceras reales: "Semana N" / "SEMANA N°" (S mayúscula). Exige mayúscula inicial
+  // para NO confundir referencias en minúscula del cuerpo ("en las semanas 4, 7 y 14").
+  const headRe = /(?:SEMANA|Semana)\s*N?[°º]?\s*(\d{1,2})(?:\s*[-–a]\s*(\d{1,2}))?/g;
+  const heads = [];
+  let m;
+  while((m = headRe.exec(text))){
+    heads.push({idx:m.index, start:parseInt(m[1]), end:m[2]?parseInt(m[2]):parseInt(m[1])});
+  }
+  if(!heads.length){
+    const list=[]; for(let n=1;n<=16;n++) list.push({numero:n,titulo:'',temas:[],examen:false,examenTipo:''});
+    return list;
+  }
+  const weeksMap = {};
+  for(let i=0;i<heads.length;i++){
+    const h = heads[i];
+    const blockEnd = (i+1<heads.length) ? heads[i+1].idx : text.length;
+    let block = text.slice(h.idx, blockEnd).replace(headRe,'');
+    const info = extractWeekContent(block);
+    for(let n=h.start;n<=h.end && n<=40;n++){
+      if(!weeksMap[n]){
+        weeksMap[n] = {numero:n, titulo:info.titulo, temas:[...info.temas], examen:info.examen, examenTipo:info.examenTipo};
+      }else{
+        // misma semana aparece dos veces (p.ej. duplicada por salto de página): fusiona
+        info.temas.forEach(t=>{ if(!weeksMap[n].temas.includes(t)) weeksMap[n].temas.push(t); });
+        if(info.examen){ weeksMap[n].examen=true; weeksMap[n].examenTipo=info.examenTipo; }
+        if(!weeksMap[n].titulo) weeksMap[n].titulo=info.titulo;
+      }
+    }
+  }
+  let list = Object.values(weeksMap).sort((a,b)=>a.numero-b.numero);
+  // Fallback total: si no se detectó nada útil, semanas genéricas 1-16 vacías
+  if(list.every(w=>w.temas.length===0 && !w.examen)){
+    list = []; for(let n=1;n<=16;n++) list.push({numero:n,titulo:'',temas:[],examen:false,examenTipo:''});
   }
   return list;
 }
