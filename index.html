@@ -7,6 +7,7 @@
 <title>Clínicas 6to Ciclo · UPAO</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.11.0/mammoth.browser.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <style>*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 :root{
   --em:#047857;--em2:#0B9C74;--emd:#02513B;--eml:#059669;
@@ -201,11 +202,65 @@ textarea.resumen-ta:focus{outline:none;border-color:var(--em)}
 .ai-box input[type=password],.ai-box input[type=text]{width:100%;border:1.5px solid var(--line);border-radius:9px;padding:9px;font-size:13px;font-family:inherit;margin-top:6px}
 .ai-btn{width:100%;background:var(--emd);color:#fff;border:none;border-radius:10px;padding:11px;font-weight:800;font-size:13.5px;cursor:pointer;margin-top:8px}
 
+/* ===== Candado local (login) ===== */
+#lockscreen{position:fixed;inset:0;z-index:200;background:linear-gradient(150deg,var(--emd),var(--em) 60%,var(--eml));
+  display:none;align-items:center;justify-content:center;padding:20px}
+#lockscreen.show{display:flex}
+.lockcard{background:#fff;border-radius:20px;padding:26px 22px;width:100%;max-width:360px;box-shadow:var(--shadow2);text-align:center}
+.lockcard .logo{font-size:34px}
+.lockcard h2{font-size:19px;font-weight:800;color:var(--emd);margin-top:6px}
+.lockcard p.sub{font-size:12.5px;color:var(--grey);margin-top:4px;line-height:1.45}
+.lockcard input{width:100%;border:1.5px solid var(--line);border-radius:11px;padding:12px;font-size:15px;margin-top:10px;font-family:inherit}
+.lockcard input:focus{outline:none;border-color:var(--em)}
+.lockcard .go{width:100%;background:var(--em);color:#fff;border:none;border-radius:11px;padding:13px;font-weight:800;font-size:15px;cursor:pointer;margin-top:12px}
+.lockcard .link{font-size:11.5px;color:var(--em);font-weight:700;cursor:pointer;margin-top:12px;display:inline-block}
+.lockcard .warn{font-size:11px;color:var(--amber);background:var(--amberbg);border-radius:9px;padding:8px 10px;margin-top:12px;line-height:1.4}
+.lockcard .err{font-size:12px;color:var(--bad);margin-top:8px;min-height:14px;font-weight:700}
+.lockbtn{background:rgba(255,255,255,.18);border:none;color:#fff;border-radius:10px;padding:6px 10px;font-size:12px;font-weight:700;cursor:pointer;float:right;margin-top:-2px}
+
+/* ===== Diapositivas por semana ===== */
+.slides-bar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;background:var(--bg);border-radius:10px;padding:8px 10px;margin:10px 0}
+.slides-up{font-size:12px;font-weight:700;color:var(--em2);cursor:pointer;background:#fff;border:1.5px dashed var(--em2);border-radius:8px;padding:6px 10px}
+.slides-bar .mini{font-size:11px;font-weight:700;border:none;border-radius:7px;padding:6px 9px;cursor:pointer;background:var(--okbg);color:var(--em)}
+.slides-bar .mini.danger{background:var(--badbg);color:var(--bad)}
+.slides-bar .hint{width:100%;margin-top:2px}
+
+/* ===== Horario ===== */
+.horario-day{margin-bottom:10px}
+.horario-day h4{font-size:12px;font-weight:800;color:var(--em2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px}
+.clase{display:flex;justify-content:space-between;align-items:center;background:var(--okbg);border-radius:9px;padding:8px 11px;margin-bottom:6px}
+.clase .ci{font-size:13px;font-weight:700;color:var(--emd)}
+.clase .cd{font-size:11.5px;color:var(--grey)}
+.clase .cactions{display:flex;gap:5px}
+.clase .cactions button{font-size:11px;border:none;border-radius:6px;padding:5px 8px;cursor:pointer;font-weight:700}
+.clase .cal{background:#fff;color:var(--em)}
+.clase .rm{background:var(--badbg);color:var(--bad)}
+.form-row{display:flex;gap:8px}
+.form-row > *{flex:1}
+
+/* ===== Exámenes ===== */
+.exam-card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:9px;box-shadow:var(--shadow)}
+.exam-card .en{font-weight:800;font-size:14px;color:var(--emd)}
+.exam-card .ew{font-size:11.5px;color:var(--grey);margin-top:2px}
+.exam-card .eactions{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
+.exam-card .eactions button{font-size:11.5px;border:none;border-radius:8px;padding:7px 10px;cursor:pointer;font-weight:700;background:var(--okbg);color:var(--em)}
+.exam-card .eactions button.cal{background:#eaf1ff;color:#2456c8}
+.exam-card .eactions button.rm{background:var(--badbg);color:var(--bad)}
+.wkpick{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
+.wkpick label{font-size:11.5px;background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:5px 8px;cursor:pointer;display:flex;align-items:center;gap:4px}
+.wkpick label.on{background:var(--okbg);border-color:var(--em);color:var(--em);font-weight:700}
+.wkpick input{display:none}
+.res-tema{background:var(--card);border:1px solid var(--line);border-radius:11px;padding:11px 13px;margin-bottom:8px}
+.res-tema .rt{font-weight:800;font-size:13px;color:var(--emd)}
+.res-tema .rc{font-size:12.5px;color:var(--ink);margin-top:5px;white-space:pre-wrap;line-height:1.5}
+.res-tema .rtemas{font-size:11.5px;color:var(--grey);margin-top:4px}
+
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="top">
+    <button class="lockbtn" onclick="lockApp()">🔒 Bloquear</button>
     <div class="brand">UPAO · Medicina Humana</div>
     <div class="ttl">🩺 6to Ciclo — Clínicas</div>
     <div class="sub">Sílabos, plan semanal, resúmenes y bancos por curso</div>
@@ -371,6 +426,86 @@ Respuesta: A"></textarea>
   </div>
 </div>
 
+<!-- CANDADO LOCAL (login) -->
+<div id="lockscreen">
+  <div class="lockcard">
+    <div class="logo">🩺</div>
+    <h2 id="lock-title">Clínicas 6to Ciclo</h2>
+    <p class="sub" id="lock-sub">Crea tu perfil para entrar</p>
+    <input type="text" id="lock-user" placeholder="Usuario" autocomplete="username">
+    <input type="password" id="lock-pass" placeholder="Contraseña" autocomplete="current-password">
+    <input type="password" id="lock-pass2" placeholder="Repite la contraseña" autocomplete="new-password" style="display:none">
+    <div class="err" id="lock-err"></div>
+    <button class="go" id="lock-go" onclick="lockSubmit()">Entrar</button>
+    <span class="link" id="lock-reset" onclick="resetProfile()" style="display:none">¿Olvidaste tu clave? Reiniciar candado</span>
+    <div class="warn">🔒 Candado local: solo protege esta app en <b>este dispositivo</b>. No es seguridad de nivel bancario y no sincroniza entre equipos. Tus datos siguen guardándose en este navegador.</div>
+  </div>
+</div>
+
+<!-- MODAL: Horario -->
+<div class="modal-overlay" id="modal-horario">
+  <div class="modal modal-wrap">
+    <button class="closex" onclick="closeHorario()">✕</button>
+    <h3>🗓 Mi horario</h3>
+    <p class="hint">Agrega tus clases y expórtalas a Google Calendar (evento semanal) o descarga un .ics.</p>
+    <label>Curso / clase</label>
+    <input type="text" id="hr-nombre" placeholder="Ej: Semiología — Práctica">
+    <div class="form-row">
+      <div><label>Día</label>
+        <select id="hr-dia">
+          <option value="MO">Lunes</option><option value="TU">Martes</option><option value="WE">Miércoles</option>
+          <option value="TH">Jueves</option><option value="FR">Viernes</option><option value="SA">Sábado</option><option value="SU">Domingo</option>
+        </select>
+      </div>
+      <div><label>Inicio</label><input type="time" id="hr-ini" value="07:00"></div>
+      <div><label>Fin</label><input type="time" id="hr-fin" value="09:00"></div>
+    </div>
+    <label>Aula / lugar (opcional)</label>
+    <input type="text" id="hr-aula" placeholder="Ej: Pabellón H, aula 302">
+    <button class="addqbtn" onclick="addClase()" style="margin-top:10px">+ Agregar al horario</button>
+    <div id="horario-list" style="margin-top:12px"></div>
+    <div class="modal-actions">
+      <button class="cancel" onclick="closeHorario()">Cerrar</button>
+      <button class="confirm" onclick="horarioToICS()">⬇ Descargar horario .ics</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Exámenes por curso -->
+<div class="modal-overlay" id="modal-examenes">
+  <div class="modal modal-wrap">
+    <button class="closex" onclick="closeExamenes()">✕</button>
+    <h3>📅 Exámenes del curso</h3>
+    <input type="hidden" id="ex-course">
+    <p class="hint">Define qué semanas entran a cada examen. Luego puedes hacer un simulacro combinado, ver el resumen por tema y ponerlo en tu calendario.</p>
+    <div id="examenes-list"></div>
+    <div style="border-top:1px dashed var(--line);margin-top:12px;padding-top:12px">
+      <label>Nuevo examen</label>
+      <input type="text" id="ex-nombre" placeholder="Ej: Examen Parcial / 3er examen">
+      <label>Fecha y hora (opcional)</label>
+      <input type="datetime-local" id="ex-fecha">
+      <label>Semanas que entran</label>
+      <div class="wkpick" id="ex-weeks"></div>
+      <button class="addqbtn" onclick="addExamen()" style="margin-top:10px">+ Crear examen</button>
+    </div>
+    <div class="modal-actions">
+      <button class="confirm" onclick="closeExamenes()">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Resumen combinado por examen -->
+<div class="modal-overlay" id="modal-resumen">
+  <div class="modal modal-wrap">
+    <button class="closex" onclick="closeResumen()">✕</button>
+    <h3 id="resumen-title">📄 Resumen por tema</h3>
+    <div id="resumen-body"></div>
+    <div class="modal-actions">
+      <button class="confirm" onclick="closeResumen()">Cerrar</button>
+    </div>
+  </div>
+</div>
+
 <!-- Input oculto para importar JSON -->
 <input type="file" id="import-file-input" accept="application/json" style="display:none" onchange="handleImportFile(this)">
 
@@ -433,6 +568,7 @@ function renderHome(){
       <div class="act" onclick="openStats()"><div class="ic">📊</div><div class="lb">Progreso</div></div>
     </div>
     <div class="toolbar">
+      <button onclick="openHorario()">🗓 Horario</button>
       <button onclick="openExportModal()">⬇ Exportar</button>
       <button onclick="openImportModal()">⬆ Importar</button>
     </div>
@@ -474,6 +610,7 @@ function renderCourse(id){
       <div class="actions">
         <button onclick="openSilaboModal('${c.id}')">📄 ${c.silaboFileName?'Reemplazar sílabo':'Subir sílabo'}</button>
         <button onclick="addWeekManual('${c.id}')">+ Semana manual</button>
+        <button onclick="openExamenes('${c.id}')">📅 Exámenes</button>
       </div>
     </div>
     ${c.silaboFileName ? `
@@ -508,6 +645,14 @@ function renderWeekHTML(courseId, w){
     </div>
     <div class="week-body">
       <ul class="temas-list">${w.temas.map(t=>`<li>${escapeHtml(t)}</li>`).join('')}</ul>
+      <div class="slides-bar">
+        <label class="slides-up" for="slides-in-${w.id}">${w.slidesText?'📎 Diapositivas ✓'+((w.slidesFiles&&w.slidesFiles.length)?' ('+w.slidesFiles.length+')':''):'📎 Subir diapositivas (PPT/PDF)'}</label>
+        <input type="file" id="slides-in-${w.id}" accept=".pptx,.pdf,application/pdf" style="display:none" onchange="handleSlides('${courseId}','${w.id}',this)">
+        ${w.slidesText?`<button class="mini" onclick="genSummaryAI('${courseId}','${w.id}')">✨ Resumen IA</button>
+                        <button class="mini" onclick="genQuestionsAI('${courseId}','${w.id}')">✨ Preguntas IA</button>
+                        <button class="mini danger" onclick="clearSlides('${courseId}','${w.id}')">Quitar</button>`:''}
+        <span class="hint" id="slides-status-${w.id}"></span>
+      </div>
       <div class="subtabs">
         <div class="subtab active" onclick="switchSub(this,'${w.id}','resumen')">📝 Resumen</div>
         <div class="subtab" onclick="switchSub(this,'${w.id}','banco')">📚 Banco (${w.banco.length})</div>
@@ -1283,8 +1428,343 @@ async function aiExtractFromModal(){
   }
 }
 
+// ============ CANDADO LOCAL (login por dispositivo) ============
+// Nota honesta: NO es seguridad real. La clave se guarda hasheada (SHA-256 + sal)
+// solo en este navegador; alguien con las herramientas del navegador podría saltarlo.
+const AUTH_KEY='clinicas6_auth';
+function authGet(){ try{ return JSON.parse(localStorage.getItem(AUTH_KEY)||'null'); }catch(e){ return null; } }
+function authSet(o){ localStorage.setItem(AUTH_KEY, JSON.stringify(o)); }
+function randHex(n){ const a=new Uint8Array(n); (crypto.getRandomValues?crypto.getRandomValues(a):a.forEach((_,i)=>a[i]=Math.floor(Math.random()*256))); return [...a].map(b=>b.toString(16).padStart(2,'0')).join(''); }
+async function hashPw(pw, salt){
+  if(crypto.subtle){
+    const buf=await crypto.subtle.digest('SHA-256', new TextEncoder().encode(salt+':'+pw));
+    return [...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,'0')).join('');
+  }
+  // fallback simple (contexto no seguro): mejor que texto plano, no criptográfico
+  let h=0; const s=salt+':'+pw; for(let i=0;i<s.length;i++){ h=(h*31+s.charCodeAt(i))>>>0; } return 'x'+h.toString(16);
+}
+function showLock(mode){
+  const auth=authGet();
+  const isCreate = mode==='create' || !auth;
+  document.getElementById('lock-title').textContent = isCreate?'Crea tu perfil':'Bienvenido de vuelta';
+  document.getElementById('lock-sub').textContent = isCreate?'Un usuario y contraseña para entrar a la app':'Ingresa tu contraseña para continuar';
+  document.getElementById('lock-user').value = auth? auth.user : '';
+  document.getElementById('lock-user').readOnly = !isCreate && !!auth;
+  document.getElementById('lock-pass').value='';
+  document.getElementById('lock-pass2').value='';
+  document.getElementById('lock-pass2').style.display = isCreate?'block':'none';
+  document.getElementById('lock-go').textContent = isCreate?'Crear y entrar':'Entrar';
+  document.getElementById('lock-reset').style.display = isCreate?'none':'inline-block';
+  document.getElementById('lock-err').textContent='';
+  document.getElementById('lockscreen').classList.add('show');
+  document.getElementById('lock-'+(isCreate?'user':'pass')).focus();
+}
+function hideLock(){ document.getElementById('lockscreen').classList.remove('show'); }
+async function lockSubmit(){
+  const auth=authGet();
+  const user=document.getElementById('lock-user').value.trim();
+  const pw=document.getElementById('lock-pass').value;
+  const err=document.getElementById('lock-err');
+  const isCreate=!auth;
+  if(isCreate){
+    const pw2=document.getElementById('lock-pass2').value;
+    if(!user){ err.textContent='Escribe un usuario.'; return; }
+    if(pw.length<4){ err.textContent='La contraseña debe tener al menos 4 caracteres.'; return; }
+    if(pw!==pw2){ err.textContent='Las contraseñas no coinciden.'; return; }
+    const salt=randHex(8); const hash=await hashPw(pw,salt);
+    authSet({user, salt, hash});
+    sessionStorage.setItem('clinicas6_unlocked','1');
+    hideLock(); renderHome();
+  }else{
+    const hash=await hashPw(pw, auth.salt);
+    if(hash===auth.hash){ sessionStorage.setItem('clinicas6_unlocked','1'); hideLock(); renderHome(); }
+    else err.textContent='Contraseña incorrecta.';
+  }
+}
+function lockApp(){ sessionStorage.removeItem('clinicas6_unlocked'); showLock('login'); }
+function resetProfile(){
+  if(confirm('Esto borra tu usuario y contraseña (tus cursos y datos NO se borran). Podrás crear un perfil nuevo. ¿Continuar?')){
+    localStorage.removeItem(AUTH_KEY); sessionStorage.removeItem('clinicas6_unlocked'); showLock('create');
+  }
+}
+function bootApp(){
+  renderHome();
+  if(sessionStorage.getItem('clinicas6_unlocked')==='1'){ hideLock(); return; }
+  showLock(authGet()?'login':'create');
+}
+
+// ============ IA: completar (reutilizable) ============
+async function aiComplete(prompt, maxTokens){
+  const key=getApiKey(); if(!key) throw new Error('NO_KEY');
+  const res=await fetch('https://api.anthropic.com/v1/messages',{
+    method:'POST',
+    headers:{'content-type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+    body:JSON.stringify({model:getModel(), max_tokens:maxTokens||1500, messages:[{role:'user',content:prompt}]})
+  });
+  if(!res.ok){ let t=''; try{t=await res.text();}catch(e){} throw new Error('HTTP '+res.status+(t?' · '+t.slice(0,160):'')); }
+  const data=await res.json();
+  return (data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('\n').trim();
+}
+function ensureKey(){
+  if(getApiKey()) return true;
+  const k=prompt('Pega tu API key de Anthropic (sk-ant-..., se guarda solo en este dispositivo):');
+  if(k && k.trim()){ setApiKey(k.trim()); return true; }
+  return false;
+}
+
+// ============ DIAPOSITIVAS por semana (solo texto) ============
+async function handleSlides(courseId, wid, input){
+  const file=input.files[0]; if(!file) return;
+  const c=DATA.courses.find(x=>x.id===courseId); const w=c.semanas.find(x=>x.id===wid);
+  const st=document.getElementById('slides-status-'+wid); if(st) st.textContent='Extrayendo texto de '+file.name+'...';
+  try{
+    const buf=await file.arrayBuffer(); let text='';
+    if(/\.pptx$/i.test(file.name)){
+      if(typeof JSZip==='undefined') throw new Error('JSZip no cargó (revisa tu conexión)');
+      const zip=await JSZip.loadAsync(buf);
+      const names=Object.keys(zip.files).filter(n=>/ppt\/slides\/slide\d+\.xml$/i.test(n))
+        .sort((a,b)=>(+a.match(/slide(\d+)/i)[1])-(+b.match(/slide(\d+)/i)[1]));
+      for(const n of names){
+        const xml=await zip.file(n).async('string');
+        const runs=[...xml.matchAll(/<a:t>([\s\S]*?)<\/a:t>/g)].map(m=>m[1]);
+        if(runs.length) text+=runs.join(' ')+'\n';
+      }
+    }else if(/\.pdf$/i.test(file.name)){
+      const pdf=await pdfjsLib.getDocument({data:buf}).promise;
+      for(let p=1;p<=pdf.numPages;p++){ const pg=await pdf.getPage(p); const cont=await pg.getTextContent(); text+=cont.items.map(i=>i.str).join(' ')+'\n'; }
+    }else{ throw new Error('Formato no soportado. Usa .pptx o .pdf'); }
+    text=text.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&#\d+;/g,' ').trim();
+    if(!text){ throw new Error('No se encontró texto en el archivo'); }
+    w.slidesText=(w.slidesText?w.slidesText+'\n\n':'')+text;
+    w.slidesFiles=(w.slidesFiles||[]).concat([file.name]);
+    save(); renderCourse(courseId);
+    setTimeout(()=>{ const wk=document.getElementById('week-'+wid); if(wk) wk.classList.add('open'); },50);
+  }catch(e){ if(st) st.textContent='⚠ '+e.message; else alert('⚠ '+e.message); }
+}
+function clearSlides(courseId, wid){
+  if(!confirm('¿Quitar el texto de diapositivas de esta semana?')) return;
+  const c=DATA.courses.find(x=>x.id===courseId); const w=c.semanas.find(x=>x.id===wid);
+  w.slidesText=''; w.slidesFiles=[]; save(); renderCourse(courseId);
+}
+async function genSummaryAI(courseId, wid){
+  const c=DATA.courses.find(x=>x.id===courseId); const w=c.semanas.find(x=>x.id===wid);
+  if(!w.slidesText){ alert('Primero sube diapositivas a esta semana.'); return; }
+  if(!ensureKey()) return;
+  const st=document.getElementById('slides-status-'+wid); if(st) st.textContent='✨ Generando resumen con IA...';
+  try{
+    const prompt='A partir del siguiente contenido de diapositivas de una clase de medicina, redacta un RESUMEN de estudio en español, claro y bien organizado: puntos clave, definiciones y datos importantes, con viñetas cuando ayude. No inventes información que no esté presente.\n\nCONTENIDO:\n"""\n'+w.slidesText.slice(0,12000)+'\n"""';
+    const out=await aiComplete(prompt, 1500);
+    if(w.resumen && w.resumen.trim() && !confirm('Ya hay un resumen en esta semana. ¿Reemplazarlo con el de IA?')){ if(st) st.textContent=''; return; }
+    w.resumen=out; save(); renderCourse(courseId);
+    setTimeout(()=>{ const wk=document.getElementById('week-'+wid); if(wk){ wk.classList.add('open'); } },50);
+  }catch(e){ if(st) st.textContent = e.message==='NO_KEY'?'Falta la API key':'⚠ '+e.message; }
+}
+async function genQuestionsAI(courseId, wid){
+  const c=DATA.courses.find(x=>x.id===courseId); const w=c.semanas.find(x=>x.id===wid);
+  if(!w.slidesText){ alert('Primero sube diapositivas a esta semana.'); return; }
+  if(!ensureKey()) return;
+  const st=document.getElementById('slides-status-'+wid); if(st) st.textContent='✨ Generando preguntas con IA...';
+  try{
+    const prompt='A partir del siguiente contenido de diapositivas de medicina, crea 5 preguntas de opción múltiple (4 opciones cada una) en español para estudiar. Devuelve EXCLUSIVAMENTE JSON válido (sin markdown): {"preguntas":[{"q":"...","opts":["a","b","c","d"],"ans":0,"exp":"..."}]}. "ans" es el índice 0-3 de la opción correcta. No inventes datos que no estén implícitos en el contenido.\n\nCONTENIDO:\n"""\n'+w.slidesText.slice(0,12000)+'\n"""';
+    let out=await aiComplete(prompt, 2500);
+    out=out.replace(/^```(?:json)?\s*/i,'').replace(/```\s*$/,'').trim();
+    const a=out.indexOf('{'), z=out.lastIndexOf('}'); if(a>=0&&z>a) out=out.slice(a,z+1);
+    const parsed=JSON.parse(out); const arr=parsed.preguntas||parsed.questions||[];
+    let added=0;
+    arr.forEach(q=>{
+      const opts=Array.isArray(q.opts)?q.opts.map(o=>String(o)):[];
+      const ans=parseInt(q.ans); 
+      if(q.q && opts.length>=2 && ans>=0 && ans<opts.length){ w.banco.push(mkQ(String(q.q),opts,ans,String(q.exp||''))); added++; }
+    });
+    if(!added) throw new Error('La IA no devolvió preguntas válidas');
+    save(); renderCourse(courseId);
+    setTimeout(()=>{ const wk=document.getElementById('week-'+wid); if(wk){ wk.classList.add('open'); const bt=wk.querySelector('.subtab:nth-child(2)'); if(bt) bt.click(); } },50);
+  }catch(e){ if(st) st.textContent = e.message==='NO_KEY'?'Falta la API key':'⚠ '+e.message; }
+}
+
+// ============ CALENDARIO (Google Calendar link + .ics, sin backend) ============
+function pad2(n){ return String(n).padStart(2,'0'); }
+function calFmt(d){ return d.getUTCFullYear()+pad2(d.getUTCMonth()+1)+pad2(d.getUTCDate())+'T'+pad2(d.getUTCHours())+pad2(d.getUTCMinutes())+'00Z'; }
+function gcalUrl(ev){
+  let u='https://calendar.google.com/calendar/render?action=TEMPLATE'
+    +'&text='+encodeURIComponent(ev.title)
+    +'&dates='+calFmt(ev.start)+'/'+calFmt(ev.end);
+  if(ev.desc) u+='&details='+encodeURIComponent(ev.desc);
+  if(ev.loc)  u+='&location='+encodeURIComponent(ev.loc);
+  if(ev.rrule)u+='&recur='+encodeURIComponent('RRULE:'+ev.rrule);
+  return u;
+}
+function icsEsc(s){ return String(s||'').replace(/([\\,;])/g,'\\$1').replace(/\n/g,'\\n'); }
+function buildICS(events){
+  let ics='BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Clinicas6to//ES\r\nCALSCALE:GREGORIAN\r\n';
+  events.forEach((e,i)=>{
+    ics+='BEGIN:VEVENT\r\nUID:'+Date.now()+'-'+i+'@clinicas6\r\nDTSTAMP:'+calFmt(new Date())+'\r\n'
+      +'DTSTART:'+calFmt(e.start)+'\r\nDTEND:'+calFmt(e.end)+'\r\nSUMMARY:'+icsEsc(e.title)+'\r\n';
+    if(e.loc)  ics+='LOCATION:'+icsEsc(e.loc)+'\r\n';
+    if(e.desc) ics+='DESCRIPTION:'+icsEsc(e.desc)+'\r\n';
+    if(e.rrule)ics+='RRULE:'+e.rrule+'\r\n';
+    ics+='END:VEVENT\r\n';
+  });
+  return ics+'END:VCALENDAR';
+}
+function downloadICS(events, filename){
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([buildICS(events)],{type:'text/calendar'}));
+  a.download=filename||'clinicas.ics';
+  document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(a.href);
+}
+function openGcal(ev){ window.open(gcalUrl(ev),'_blank'); }
+
+// ============ HORARIO ============
+const DIAS={MO:'Lunes',TU:'Martes',WE:'Miércoles',TH:'Jueves',FR:'Viernes',SA:'Sábado',SU:'Domingo'};
+const DIA_IDX={SU:0,MO:1,TU:2,WE:3,TH:4,FR:5,SA:6};
+function ensureHorario(){ if(!DATA.horario) DATA.horario=[]; }
+function nextOccurrence(dayCode, hh, mm){
+  const d=new Date(); const target=DIA_IDX[dayCode];
+  let diff=(target - d.getDay()+7)%7;
+  d.setDate(d.getDate()+diff); d.setHours(hh,mm,0,0);
+  if(d.getTime() < Date.now()) d.setDate(d.getDate()+7);
+  return d;
+}
+function claseEvent(cl){
+  const [ih,im]=cl.ini.split(':').map(Number); const [fh,fm]=cl.fin.split(':').map(Number);
+  const start=nextOccurrence(cl.dia, ih, im);
+  const end=new Date(start); end.setHours(fh,fm,0,0);
+  if(end<=start) end.setTime(start.getTime()+60*60000);
+  return {title:cl.nombre, loc:cl.aula||'', desc:'Clase — Clínicas 6to Ciclo', start, end, rrule:'FREQ=WEEKLY;BYDAY='+cl.dia};
+}
+function openHorario(){ ensureHorario(); renderHorarioList(); document.getElementById('modal-horario').classList.add('show'); }
+function closeHorario(){ document.getElementById('modal-horario').classList.remove('show'); }
+function addClase(){
+  ensureHorario();
+  const nombre=document.getElementById('hr-nombre').value.trim();
+  const dia=document.getElementById('hr-dia').value;
+  const ini=document.getElementById('hr-ini').value, fin=document.getElementById('hr-fin').value;
+  const aula=document.getElementById('hr-aula').value.trim();
+  if(!nombre){ alert('Escribe el nombre de la clase'); return; }
+  DATA.horario.push({id:'h'+Math.random().toString(36).slice(2,9), nombre, dia, ini, fin, aula});
+  save(); document.getElementById('hr-nombre').value=''; document.getElementById('hr-aula').value='';
+  renderHorarioList();
+}
+function delClase(id){ DATA.horario=DATA.horario.filter(x=>x.id!==id); save(); renderHorarioList(); }
+function renderHorarioList(){
+  ensureHorario();
+  const el=document.getElementById('horario-list');
+  if(!DATA.horario.length){ el.innerHTML='<div class="hint">Aún no hay clases. Agrega la primera arriba ↑</div>'; return; }
+  const order=['MO','TU','WE','TH','FR','SA','SU'];
+  el.innerHTML=order.filter(d=>DATA.horario.some(c=>c.dia===d)).map(d=>`
+    <div class="horario-day"><h4>${DIAS[d]}</h4>
+    ${DATA.horario.filter(c=>c.dia===d).sort((a,b)=>a.ini.localeCompare(b.ini)).map(c=>`
+      <div class="clase">
+        <div><div class="ci">${escapeHtml(c.nombre)}</div><div class="cd">${c.ini}–${c.fin}${c.aula?' · '+escapeHtml(c.aula):''}</div></div>
+        <div class="cactions">
+          <button class="cal" onclick="claseToGcal('${c.id}')">📅 Google</button>
+          <button class="rm" onclick="delClase('${c.id}')">✕</button>
+        </div>
+      </div>`).join('')}</div>`).join('');
+}
+function claseToGcal(id){ const cl=DATA.horario.find(x=>x.id===id); if(cl) openGcal(claseEvent(cl)); }
+function horarioToICS(){
+  ensureHorario();
+  if(!DATA.horario.length){ alert('No hay clases en tu horario todavía.'); return; }
+  downloadICS(DATA.horario.map(claseEvent), 'horario-clinicas.ics');
+}
+
+// ============ EXÁMENES por curso (semanas que entran + simulacro/resumen/calendario) ============
+function ensureExamenes(c){ if(!c.examenes) c.examenes=[]; }
+function openExamenes(courseId){
+  const c=DATA.courses.find(x=>x.id===courseId); ensureExamenes(c);
+  document.getElementById('ex-course').value=courseId;
+  document.getElementById('ex-nombre').value=''; document.getElementById('ex-fecha').value='';
+  // checkboxes de semanas
+  document.getElementById('ex-weeks').innerHTML = c.semanas.slice().sort((a,b)=>a.numero-b.numero).map(w=>`
+    <label id="wk-lbl-${w.id}" onclick="toggleWkPick(this)"><input type="checkbox" value="${w.numero}">S${w.numero}</label>`).join('') || '<span class="hint">Este curso no tiene semanas aún.</span>';
+  renderExamenesList();
+  document.getElementById('modal-examenes').classList.add('show');
+}
+function toggleWkPick(lbl){ setTimeout(()=>lbl.classList.toggle('on', lbl.querySelector('input').checked),0); }
+function closeExamenes(){ document.getElementById('modal-examenes').classList.remove('show'); }
+function addExamen(){
+  const courseId=document.getElementById('ex-course').value;
+  const c=DATA.courses.find(x=>x.id===courseId); ensureExamenes(c);
+  const nombre=document.getElementById('ex-nombre').value.trim();
+  const fecha=document.getElementById('ex-fecha').value;
+  const semanas=[...document.querySelectorAll('#ex-weeks input:checked')].map(i=>parseInt(i.value));
+  if(!nombre){ alert('Ponle un nombre al examen'); return; }
+  if(!semanas.length){ alert('Marca al menos una semana'); return; }
+  c.examenes.push({id:'e'+Math.random().toString(36).slice(2,9), nombre, semanas, fecha:fecha||''});
+  save(); openExamenes(courseId);
+}
+function delExamen(courseId, exId){
+  const c=DATA.courses.find(x=>x.id===courseId); ensureExamenes(c);
+  c.examenes=c.examenes.filter(x=>x.id!==exId); save(); openExamenes(courseId);
+}
+function renderExamenesList(){
+  const courseId=document.getElementById('ex-course').value;
+  const c=DATA.courses.find(x=>x.id===courseId); ensureExamenes(c);
+  const el=document.getElementById('examenes-list');
+  if(!c.examenes.length){ el.innerHTML='<div class="hint">Aún no defines exámenes. Crea el primero abajo ↓</div>'; return; }
+  el.innerHTML=c.examenes.map(ex=>{
+    const nq=c.semanas.filter(w=>ex.semanas.includes(w.numero)).reduce((a,w)=>a+w.banco.length,0);
+    const fechaTxt=ex.fecha? new Date(ex.fecha).toLocaleString('es-PE',{dateStyle:'medium',timeStyle:'short'}) : '';
+    return `<div class="exam-card">
+      <div class="en">${escapeHtml(ex.nombre)}</div>
+      <div class="ew">Semanas: ${ex.semanas.sort((a,b)=>a-b).join(', ')} · ${nq} pregunta${nq==1?'':'s'}${fechaTxt?' · 📅 '+fechaTxt:''}</div>
+      <div class="eactions">
+        <button onclick="examScopeSimulacro('${courseId}','${ex.id}')">🧪 Simulacro</button>
+        <button onclick="examScopeResumen('${courseId}','${ex.id}')">📄 Resumen por tema</button>
+        ${ex.fecha?`<button class="cal" onclick="examScopeGcal('${courseId}','${ex.id}')">📅 Google</button>
+                    <button class="cal" onclick="examScopeICS('${courseId}','${ex.id}')">⬇ .ics</button>`:''}
+        <button class="rm" onclick="delExamen('${courseId}','${ex.id}')">🗑</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+function examPool(c, ex){
+  const out=[];
+  c.semanas.filter(w=>ex.semanas.includes(w.numero)).forEach(w=>w.banco.forEach(q=>out.push({q,c,w})));
+  return out;
+}
+function examScopeSimulacro(courseId, exId){
+  const c=DATA.courses.find(x=>x.id===courseId); const ex=c.examenes.find(x=>x.id===exId);
+  const pool=examPool(c,ex);
+  if(!pool.length){ alert('Ese examen no tiene preguntas en sus semanas. Agrega/genera preguntas primero.'); return; }
+  closeExamenes();
+  EXAM={list:shuffle(pool.slice()), i:0, answers:new Array(pool.length).fill(null), timer:null, endsAt:0};
+  document.getElementById('modal-exam').classList.add('show');
+  renderExamQ();
+}
+function examScopeResumen(courseId, exId){
+  const c=DATA.courses.find(x=>x.id===courseId); const ex=c.examenes.find(x=>x.id===exId);
+  const weeks=c.semanas.filter(w=>ex.semanas.includes(w.numero)).sort((a,b)=>a.numero-b.numero);
+  document.getElementById('resumen-title').textContent='📄 '+ex.nombre+' — resumen por tema';
+  const body=document.getElementById('resumen-body');
+  body.innerHTML = weeks.map(w=>`
+    <div class="res-tema">
+      <div class="rt">Semana ${w.numero}${w.titulo?' — '+escapeHtml(w.titulo):''}</div>
+      ${w.temas.length?`<div class="rtemas">${w.temas.map(escapeHtml).join(' · ')}</div>`:''}
+      ${w.resumen&&w.resumen.trim()?`<div class="rc">${escapeHtml(w.resumen)}</div>`:'<div class="rtemas">— sin resumen aún —</div>'}
+    </div>`).join('') || '<div class="hint">Sin semanas.</div>';
+  document.getElementById('modal-resumen').classList.add('show');
+}
+function closeResumen(){ document.getElementById('modal-resumen').classList.remove('show'); }
+function examEvent(c, ex){
+  const start=new Date(ex.fecha); const end=new Date(start.getTime()+2*60*60000);
+  return {title:ex.nombre+' — '+c.nombre, desc:'Semanas: '+ex.semanas.slice().sort((a,b)=>a-b).join(', '), start, end};
+}
+function examScopeGcal(courseId, exId){
+  const c=DATA.courses.find(x=>x.id===courseId); const ex=c.examenes.find(x=>x.id===exId);
+  if(!ex.fecha){ alert('Ponle fecha al examen primero.'); return; }
+  openGcal(examEvent(c,ex));
+}
+function examScopeICS(courseId, exId){
+  const c=DATA.courses.find(x=>x.id===courseId); const ex=c.examenes.find(x=>x.id===exId);
+  if(!ex.fecha){ alert('Ponle fecha al examen primero.'); return; }
+  downloadICS([examEvent(c,ex)], 'examen.ics');
+}
+
 // ============ INIT ============
-renderHome();
+bootApp();
 
 </script>
 </body>
