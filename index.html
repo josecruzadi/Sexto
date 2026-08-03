@@ -1166,6 +1166,16 @@ function hasGradesEntered(c){
 // ---- Detección automática desde el texto del sílabo ----
 // Primero intenta el formato con etiquetas "(COMPn) NN%" / "(SCn) NN%" (formato real
 // de UPAO, con subcomponentes). Si no aparece, cae al heurístico genérico plano.
+// Coincidencia difusa (subsecuencia de letras) para reconciliar etiquetas con
+// erratas entre la tabla de componentes y la fórmula del PROMO (ej. "EF" en la
+// tabla vs "EVF" en la fórmula: son la misma evaluación, solo mal tipeada).
+function isSubsequence(needle, haystack){
+  let i=0;
+  for(let j=0;j<haystack.length && i<needle.length;j++){
+    if(haystack[j]===needle[i]) i++;
+  }
+  return i===needle.length;
+}
 function parseComponentesConTags(text){
   if(!text) return null;
   const t = text.replace(/\s+/g,' ').trim();
@@ -1174,34 +1184,58 @@ function parseComponentesConTags(text){
   const calcMatch = t.slice(headMatch.index).match(/c[aá]lculo para la nota final/i);
   const zonaEndAbs = calcMatch ? headMatch.index+calcMatch.index : Math.min(t.length, headMatch.index+4000);
   const zona = t.slice(headMatch.index+headMatch[0].length, zonaEndAbs);
-  const tagRe = /\(([A-Za-z]{2,4})\s*0*(\d+)\)\s*(\d{1,3}(?:[.,]\d+)?)\s*%/g;
+  // Etiquetas tipo "(COMP1) 7%" / "(SC1) 15%" (Semiología), pero también
+  // "(EP1) 20%" / "(EF) 30%" / "(EVA 3A) 20%" (Diagnóstico): el número y el
+  // sufijo de letra son opcionales para cubrir ambos formatos reales de UPAO.
+  const tagRe = /\(([A-Za-z]{2,6})\s*0*(\d*)([A-Za-z]?)\)\s*(\d{1,3}(?:[.,]\d+)?)\s*%/g;
   const items = []; let m; let lastEnd = 0;
   while((m = tagRe.exec(zona))){
     const tipo = m[1].toUpperCase();
-    const num = parseInt(m[2]);
-    const peso = parseFloat(m[3].replace(',','.'));
-    const nombre = zona.slice(lastEnd, m.index).replace(/[\s.:,\-]+$/,'').trim();
+    const num = m[2] ? parseInt(m[2]) : null;
+    const suffix = (m[3]||'').toUpperCase();
+    const peso = parseFloat(m[4].replace(',','.'));
+    const rawSeg = zona.slice(lastEnd, m.index);
+    // Un "■"/"•" justo antes de la etiqueta marca un subcomponente (formato Diagnóstico).
+    const bullet = /^\s*[■•]/.test(rawSeg);
+    const nombre = rawSeg.replace(/^[\s.:,\-■•]+/,'').replace(/[\s.:,\-]+$/,'').trim();
     lastEnd = m.index + m[0].length;
-    if(peso>0 && peso<=100) items.push({tipo, num, peso, nombre});
+    if(peso>0 && peso<=100) items.push({tipo, num, suffix, peso, nombre, bullet});
   }
   if(!items.length) return null;
-  // Cruce con la fórmula "PROMO = NN%*COMP1 + ..." si existe, para confirmar los
-  // pesos reales de cada componente en la nota final (más confiable que el orden del texto).
+  // Cruce con la fórmula "PROMO = NN%*COMP1 + ..." / "NN%*EP1 + ..." si existe,
+  // para confirmar los pesos reales de cada componente en la nota final (más
+  // confiable que el orden del texto). Si la etiqueta no calza exacto (typo del
+  // sílabo, ej. "EF" vs "EVF"), se busca la más parecida por subsecuencia.
   const formulaMap = {};
   const formulaMatch = t.match(/promo\s*=\s*([\s\S]{0,600}?)(?:\n\n|todas las evaluaciones|$)/i);
   if(formulaMatch){
-    const fr = /(\d{1,3}(?:[.,]\d+)?)\s*%\s*\*\s*comp\s*0*(\d+)/gi;
-    let fm; while((fm = fr.exec(formulaMatch[1]))){ formulaMap[parseInt(fm[2])] = parseFloat(fm[1].replace(',','.')); }
+    const fr = /(\d{1,3}(?:[.,]\d+)?)\s*%\s*\*\s*([a-z]{2,6}\d*)/gi;
+    let fm; while((fm = fr.exec(formulaMatch[1]))){ formulaMap[fm[2].toUpperCase()] = parseFloat(fm[1].replace(',','.')); }
   }
   const comps = []; let current = null;
   items.forEach(it=>{
-    if(it.tipo==='COMP'){
-      const peso = formulaMap[it.num]!=null ? formulaMap[it.num] : it.peso;
-      current = { nombre: it.nombre ? capWords(it.nombre.toLowerCase()) : ('Componente '+it.num), peso, sub:[] };
+    const tagKey = (it.tipo + (it.num!=null?it.num:'') + it.suffix).toUpperCase();
+    // COMP siempre es de nivel superior; SC siempre es subcomponente; el resto de
+    // etiquetas (EP, EF, EVA...) se clasifica según si vino marcada con viñeta.
+    const isTop = it.tipo==='COMP' || (it.tipo!=='SC' && !it.bullet);
+    if(isTop){
+      let peso = formulaMap[tagKey];
+      if(peso==null){
+        let best=null;
+        Object.keys(formulaMap).forEach(k=>{
+          if(isSubsequence(tagKey,k) || isSubsequence(k,tagKey)){
+            if(!best || Math.abs(k.length-tagKey.length) < Math.abs(best.length-tagKey.length)) best=k;
+          }
+        });
+        if(best) peso = formulaMap[best];
+      }
+      if(peso==null) peso = it.peso;
+      const nom = (it.nombre && it.nombre.length<=60) ? it.nombre : ('Componente '+(it.num!=null?it.num:tagKey));
+      current = { nombre: capWords(nom.toLowerCase()), peso, sub:[] };
       comps.push(current);
     }else if(current){
       let nom = it.nombre;
-      if(!nom || nom.length>60) nom = it.tipo+it.num; // nombre "sucio" (tabla mezclada): usa la etiqueta
+      if(!nom || nom.length>60) nom = it.tipo+(it.num!=null?it.num:'')+it.suffix; // nombre "sucio" (tabla mezclada): usa la etiqueta
       current.sub.push({ nombre: capWords(nom.toLowerCase()), peso: it.peso });
     }
   });
@@ -1762,15 +1796,19 @@ function extractWeekContent(block){
   // 0) normaliza espacios (el PDF trae espacios dobles que rompen cortes literales)
   block = block.replace(/\s+/g,' ').trim();
 
-  // 1) ¿es semana de examen?
-  const exam = block.match(/EXAMEN\s+(PARCIAL|FINAL|SUSTITUTORIO|DE\s+APLAZADOS|DE\s+RECUPERACI[ÓO]N)/i);
+  // 1) ¿es semana de examen? (algunos sílabos dicen "EXAMEN PARCIAL", otros "EVALUACION
+  // PARCIAL", y las semanas de ECOE a veces vienen solas sin la palabra "examen").
+  const exam = block.match(/(?:EXAMEN|EVALUACI[ÓO]N)\s+(PARCIAL|FINAL|SUSTITUTORIO|DE\s+APLAZADOS|DE\s+RECUPERACI[ÓO]N)|\b(ECOE)\b/i);
   if(exam){
-    const tipo = capWords(exam[1].replace(/\s+/g,' '));
-    return {temas:[], examen:true, examenTipo:'Examen '+tipo, titulo:'Examen '+tipo};
+    if(exam[1]){
+      const tipo = capWords(exam[1].replace(/\s+/g,' '));
+      return {temas:[], examen:true, examenTipo:'Examen '+tipo, titulo:'Examen '+tipo};
+    }
+    return {temas:[], examen:true, examenTipo:'ECOE', titulo:'ECOE'};
   }
 
   // 2) recorta la columna "Actividades de Aprendizaje" (todo lo posterior es boilerplate)
-  let c = block.split(/El estudiante discute|Participa de la Videoconferencia|Comparte sus productos|En las horas de PR[ÁA]CTICA|Actividades de Aprendizaje|Demuestra conoc|Realiza planteamiento/i)[0];
+  let c = block.split(/El estudiante discute|Participa de la Videoconferencia|Comparte sus productos|En las horas de PR[ÁA]CTICA|Actividades de Aprendizaje|Demuestra conoc|Realiza planteamiento|Exposici[oó]n del contenido tem[aá]tico/i)[0];
   // ruido de pie de página / docsity / encabezado de tabla repetido
   c = c.replace(/Document shared on[\s\S]*/i,'')
        .replace(/N[°º]\s*Semanas[\s\S]*?Aprendizaje/gi,' ')
@@ -1819,6 +1857,8 @@ function parseWeeksFromText(text){
     heads.push({idx:m.index, start:parseInt(m[1]), end:m[2]?parseInt(m[2]):parseInt(m[1])});
   }
   if(!heads.length){
+    const tableWeeks = parseWeeksFromNumberedTable(text);
+    if(tableWeeks.length) return tableWeeks;
     const list=[]; for(let n=1;n<=16;n++) list.push({numero:n,titulo:'',temas:[],examen:false,examenTipo:''});
     return list;
   }
@@ -1845,6 +1885,38 @@ function parseWeeksFromText(text){
     list = []; for(let n=1;n<=16;n++) list.push({numero:n,titulo:'',temas:[],examen:false,examenTipo:''});
   }
   return list;
+}
+// Algunos sílabos (ej. Diagnóstico por Imágenes) numeran las semanas como una
+// tabla llana "01, 02, 03..." bajo un encabezado "N° de semana", sin nunca
+// escribir la palabra "Semana". Se usa como respaldo cuando parseWeeksFromText
+// no encuentra ninguna cabecera "Semana N".
+function parseWeeksFromNumberedTable(text){
+  const headMatch = text.match(/n\s*[°º]?\s*de\s*semana/i);
+  const searchFrom = headMatch ? headMatch.index + headMatch[0].length : 0;
+  const zone = text.slice(searchFrom);
+  // El número debe ir seguido de espacio + mayúscula (arranque de contenido),
+  // para no confundirlo con fechas, porcentajes u otros números sueltos.
+  const tokenRe = /\b0?(\d{1,2})\b(?=\s+[A-ZÁÉÍÓÚÑ])/g;
+  const tokens = []; let m;
+  while((m = tokenRe.exec(zone))){
+    const n = parseInt(m[1]);
+    if(n>=1 && n<=30) tokens.push({idx:m.index, len:m[0].length, num:n});
+  }
+  // Solo se conserva una secuencia estrictamente consecutiva (1,2,3,...) para
+  // evitar falsos positivos con números sueltos del resto del documento.
+  const seq = []; let expected = 1;
+  for(const tok of tokens){
+    if(tok.num===expected){ seq.push(tok); expected++; }
+  }
+  if(seq.length<3) return [];
+  const weeksMap = {};
+  for(let i=0;i<seq.length;i++){
+    const start = seq[i].idx + seq[i].len;
+    const end = (i+1<seq.length) ? seq[i+1].idx : zone.length;
+    const info = extractWeekContent(zone.slice(start, end));
+    weeksMap[seq[i].num] = {numero:seq[i].num, titulo:info.titulo, temas:info.temas, examen:info.examen, examenTipo:info.examenTipo};
+  }
+  return Object.values(weeksMap).sort((a,b)=>a.numero-b.numero);
 }
 // ============ PARSER DE TABLAS (para sílabos .docx de UPAO) ============
 // Los sílabos Word vienen en tablas: [N° semana | Contenidos temáticos | Actividades].
