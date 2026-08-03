@@ -1706,6 +1706,7 @@ function openSilaboModal(courseId){
   document.getElementById('silabo-pasted').value='';
   document.getElementById('silabo-file-input').value='';
   window._silaboHtml='';
+  window._silaboPdfWeeks=null;
   const kf=document.getElementById('ai-key'); if(kf) kf.value=getApiKey();
   const mf=document.getElementById('ai-model'); if(mf) mf.value=getModel();
   const st=document.getElementById('ai-status'); if(st) st.textContent='';
@@ -1717,6 +1718,7 @@ async function handlePdfFile(input){
   const file = input.files[0];
   if(!file) return;
   window._silaboHtml = '';
+  window._silaboPdfWeeks = null;
   const isDocx = /\.docx$/i.test(file.name) || /wordprocessingml/i.test(file.type);
   const statusEl = document.getElementById('silabo-filename');
   statusEl.textContent = '📎 '+file.name+' — extrayendo texto...';
@@ -1731,13 +1733,21 @@ async function handlePdfFile(input){
       statusEl.textContent = '📎 '+file.name+' — Word leído ✓';
     }else{
       const pdf = await pdfjsLib.getDocument({data:buf}).promise;
-      let text='';
+      let text=''; const posItems=[];
       for(let p=1;p<=pdf.numPages;p++){
         const page = await pdf.getPage(p);
         const content = await page.getTextContent();
         text += content.items.map(it=>it.str).join(' ') + '\n';
+        content.items.forEach(it=>posItems.push({str:it.str, x:it.transform[4], y:it.transform[5], page:p}));
       }
       document.getElementById('silabo-pasted').value = text;
+      // Si el PDF trae una tabla real de semanas, la posición (x,y) de cada texto
+      // da resultados más fiables que el texto plano (que puede venir desordenado
+      // cuando las celdas de la tabla tienen alturas distintas).
+      try{
+        const posWeeks = parseWeeksFromPdfPositions(posItems);
+        if(posWeeks.length) window._silaboPdfWeeks = posWeeks;
+      }catch(e){ console.error(e); }
       statusEl.textContent = '📎 '+file.name+' — '+pdf.numPages+' página(s) extraídas ✓';
     }
   }catch(e){
@@ -1754,11 +1764,15 @@ function confirmSilabo(){
   const c = DATA.courses.find(x=>x.id===courseId);
   c.silaboText = text;
   c.silaboFileName = fname;
-  // Word: primero intentamos leer la tabla del sílabo (más fiable). Si no da, caemos al parser de texto.
+  // Word/PDF: primero intentamos leer la tabla real del sílabo (más fiable, por
+  // posición o por celdas). Si no da nada útil, caemos al parser de texto plano.
   let draft = null;
   if(window._silaboHtml){
     const t = parseWeeksFromTables(window._silaboHtml);
     if(t && t.length && t.some(w=>w.temas.length || w.examen)) draft = t;
+  }
+  if(!draft && window._silaboPdfWeeks && window._silaboPdfWeeks.length){
+    draft = window._silaboPdfWeeks;
   }
   if(!draft) draft = parseWeeksFromText(text);
   save();
@@ -1932,6 +1946,7 @@ function classifyExam(raw){
   if(/\bsustitutorio\b/.test(j)) return 'Examen Sustitutorio';
   if(/(?:examen|evaluaci[oó]n)\s+parcial\b/.test(j)) return 'Examen Parcial';
   if(/(?:examen|evaluaci[oó]n)\s+final\b/.test(j)) return 'Examen Final';
+  if(/\becoe\b/.test(j)) return 'ECOE';
   return null;
 }
 function parseWeeksFromTables(html){
@@ -1952,6 +1967,66 @@ function parseWeeksFromTables(html){
     if(examTipo){ examen=true; examenTipo=examTipo; }
     else temas=splitTopics(contenido);
     weeksMap[num]={numero:num, titulo:(temas[0]||examenTipo||'').slice(0,70), temas, examen, examenTipo};
+  });
+  return Object.values(weeksMap).sort((a,b)=>a.numero-b.numero);
+}
+// ============ PARSER POR POSICIÓN (para PDFs de UPAO con tabla de semanas) ============
+// pdf.js solo entrega texto plano (sin columnas): en tablas con celdas de alturas
+// distintas eso mezcla el contenido de una semana con el de otra. Aquí se usa la
+// posición real (x,y) de cada trozo de texto para reconstruir filas y columnas,
+// igual que se ve la tabla en el PDF, y así separar bien "N° de semana" de
+// "Contenidos temáticos" de "Actividades de aprendizaje".
+function groupPdfRows(items){
+  const list = items.filter(it=>it.str && it.str.trim());
+  list.sort((a,b)=> a.page-b.page || b.y-a.y);
+  const rows=[]; const eps=3;
+  list.forEach(it=>{
+    const last = rows[rows.length-1];
+    if(last && last.page===it.page && Math.abs(last.y-it.y)<=eps) last.items.push(it);
+    else rows.push({page:it.page, y:it.y, items:[it]});
+  });
+  rows.forEach(r=>r.items.sort((a,b)=>a.x-b.x));
+  return rows;
+}
+function parseWeeksFromPdfPositions(items){
+  const rows = groupPdfRows(items);
+  const headers = [];
+  rows.forEach((r,idx)=>{
+    const nItem = r.items.find(it=>/de semana/i.test(it.str));
+    const cItem = r.items.find(it=>/^contenidos/i.test(it.str));
+    const aItem = r.items.find(it=>/^actividades/i.test(it.str));
+    if(nItem && cItem && aItem) headers.push({rowIdx:idx, x0:nItem.x, x1:cItem.x, x2:aItem.x});
+  });
+  if(!headers.length) return [];
+  const weeksMap = {};
+  headers.forEach((h,hi)=>{
+    const endIdx = hi+1<headers.length ? headers[hi+1].rowIdx : rows.length;
+    const mid1 = (h.x0+h.x1)/2, mid2 = (h.x1+h.x2)/2;
+    let currentWeek=null, contentParts=[];
+    const flush = ()=>{
+      if(currentWeek==null || weeksMap[currentWeek]) return;
+      const contenido = contentParts.join(' ').replace(/\s+/g,' ').trim();
+      const examTipo = classifyExam(contenido);
+      let temas=[], examen=false, examenTipo='';
+      if(examTipo){ examen=true; examenTipo=examTipo; }
+      else temas = splitTopics(contenido);
+      weeksMap[currentWeek] = {numero:currentWeek, titulo:(temas[0]||examenTipo||'').slice(0,70), temas, examen, examenTipo};
+    };
+    for(let ri=h.rowIdx+1; ri<endIdx; ri++){
+      const col0=[], col1=[];
+      // La celda de "N° de semana" a veces llega partida en glifos sueltos (ej. "0" y "4"
+      // como dos ítems distintos): se unen sin espacio porque son un solo número.
+      rows[ri].items.forEach(it=>{
+        if(!it.str || !it.str.trim()) return;
+        if(it.x < mid1) col0.push(it.str); else if(it.x < mid2) col1.push(it.str);
+      });
+      const col0Text = col0.join('').replace(/\s+/g,'').trim();
+      const col1Text = col1.join(' ').replace(/\s+/g,' ').trim();
+      const numMatch = col0Text.match(/^0?(\d{1,2})$/);
+      if(numMatch){ flush(); currentWeek = parseInt(numMatch[1]); contentParts=[]; }
+      if(col1Text && !/^contenidos/i.test(col1Text)) contentParts.push(col1Text);
+    }
+    flush();
   });
   return Object.values(weeksMap).sort((a,b)=>a.numero-b.numero);
 }
