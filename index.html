@@ -1908,15 +1908,25 @@ async function ensureDefaultUsers(){
 }
 
 // ---- Datos por usuario: cada cuenta tiene su propio almacenamiento, aislado de las demás ----
-// Migración única: antes de tener multiusuario, todo se guardaba en STORAGE_KEY a secas.
-// Si esos datos "viejos" siguen ahí y la cuenta josecm todavía no tiene nada propio,
-// los recuperamos en vez de dejarlos huérfanos (esto es lo que borraba los sílabos).
+// Migración: antes de tener multiusuario, todo se guardaba en STORAGE_KEY a secas.
+// No basta con revisar si la cuenta josecm "ya tiene algo" guardado: el primer login
+// como josecm ya escribe un DATA vacío (seedDefault) ahí mismo, así que esa comprobación
+// por sí sola nunca dejaba pasar la recuperación real. Ahora comparamos si hay contenido
+// de verdad (sílabo, semanas o notas) en cada lado antes de decidir.
+function accountHasRealContent(d){
+  if(!d || !Array.isArray(d.courses)) return false;
+  return d.courses.some(c => c.silaboFileName || (c.semanas&&c.semanas.length) || (c.evaluacion&&c.evaluacion.length));
+}
 function migrateLegacyData(){
   try{
     const legacyRaw = localStorage.getItem(STORAGE_KEY);
     if(!legacyRaw) return;
+    let legacy; try{ legacy = JSON.parse(legacyRaw); }catch(e){ return; }
+    if(!accountHasRealContent(legacy)) return; // no hay nada real que recuperar del formato viejo
     const targetKey = dataKeyFor('josecm');
-    if(!localStorage.getItem(targetKey)){
+    let current = null;
+    try{ current = JSON.parse(localStorage.getItem(targetKey)||'null'); }catch(e){}
+    if(!accountHasRealContent(current)){
       localStorage.setItem(targetKey, legacyRaw);
     }
   }catch(e){}
