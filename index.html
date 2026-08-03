@@ -1108,6 +1108,34 @@ function deleteEvalSub(courseId, compId, subId){
   comp.sub = (comp.sub||[]).filter(s=>s.id!==subId);
   save(); renderCourse(courseId);
 }
+// Editar nombre/peso sin perder las notas ya cargadas (antes solo se podía borrar y recrear).
+function editEvalComponente(courseId, compId){
+  const c = DATA.courses.find(x=>x.id===courseId);
+  const comp = (c.evaluacion||[]).find(cp=>cp.id===compId);
+  const nombre = prompt('Nombre del componente:', comp.nombre);
+  if(nombre===null) return;
+  const pesoStr = prompt('¿Qué porcentaje vale "'+nombre.trim()+'" en la nota final del curso? (1-100)', String(comp.peso));
+  if(pesoStr===null) return;
+  const peso = parseFloat(pesoStr.replace(',','.'));
+  if(!(peso>0 && peso<=100)){ alert('El porcentaje debe ser un número entre 1 y 100.'); return; }
+  if(nombre.trim()) comp.nombre = nombre.trim();
+  comp.peso = peso;
+  save(); renderCourse(courseId);
+}
+function editEvalSub(courseId, compId, subId){
+  const c = DATA.courses.find(x=>x.id===courseId);
+  const comp = (c.evaluacion||[]).find(cp=>cp.id===compId);
+  const sub = (comp.sub||[]).find(s=>s.id===subId);
+  const nombre = prompt('Nombre del subcomponente:', sub.nombre);
+  if(nombre===null) return;
+  const pesoStr = prompt('¿Qué porcentaje vale DENTRO de "'+comp.nombre+'"? (1-100)', String(sub.peso));
+  if(pesoStr===null) return;
+  const peso = parseFloat(pesoStr.replace(',','.'));
+  if(!(peso>0 && peso<=100)){ alert('El porcentaje debe ser un número entre 1 y 100.'); return; }
+  if(nombre.trim()) sub.nombre = nombre.trim();
+  sub.peso = peso;
+  save(); renderCourse(courseId);
+}
 function hasGradesEntered(c){
   return (c.evaluacion||[]).some(cp=>
     cp.notas.some(n=>n.valor!=null) || (cp.sub||[]).some(s=>s.notas.some(n=>n.valor!=null)));
@@ -1379,6 +1407,7 @@ function renderEvalBox(c){
           <div class="eval-comp-actions">
             ${tieneSub ? '' : `<span class="togglelink" onclick="addNotaRow('${c.id}','${cp.id}', null)">+ Fila</span>`}
             <span class="togglelink" onclick="addEvalSub('${c.id}','${cp.id}')">+ Subcomponente</span>
+            <span class="togglelink" onclick="editEvalComponente('${c.id}','${cp.id}')">✎ Editar</span>
             <span class="togglelink" style="color:var(--bad)" onclick="deleteEvalComponente('${c.id}','${cp.id}')">Eliminar</span>
           </div>
         </div>
@@ -1389,6 +1418,7 @@ function renderEvalBox(c){
               <div>${escapeHtml(s.nombre)}<span class="eval-peso sub">${s.peso}%</span></div>
               <div class="eval-comp-actions">
                 <span class="togglelink" onclick="addNotaRow('${c.id}','${cp.id}','${s.id}')">+ Fila</span>
+                <span class="togglelink" onclick="editEvalSub('${c.id}','${cp.id}','${s.id}')">✎ Editar</span>
                 <span class="togglelink" style="color:var(--bad)" onclick="deleteEvalSub('${c.id}','${cp.id}','${s.id}')">Eliminar</span>
               </div>
             </div>
