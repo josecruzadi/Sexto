@@ -222,8 +222,8 @@ textarea.resumen-ta:focus{outline:none;border-color:var(--em)}
 .lockcard .logo{font-size:34px}
 .lockcard h2{font-size:19px;font-weight:800;color:var(--emd);margin-top:6px}
 .lockcard p.sub{font-size:12.5px;color:var(--grey);margin-top:4px;line-height:1.45}
-.lockcard input{width:100%;border:1.5px solid var(--line);border-radius:11px;padding:12px;font-size:15px;margin-top:10px;font-family:inherit}
-.lockcard input:focus{outline:none;border-color:var(--em)}
+.lockcard input,.lockcard select{width:100%;border:1.5px solid var(--line);border-radius:11px;padding:12px;font-size:15px;margin-top:10px;font-family:inherit;background:#fff}
+.lockcard input:focus,.lockcard select:focus{outline:none;border-color:var(--em)}
 .lockcard .go{width:100%;background:var(--em);color:#fff;border:none;border-radius:11px;padding:13px;font-weight:800;font-size:15px;cursor:pointer;margin-top:12px}
 .lockcard .link{font-size:11.5px;color:var(--em);font-weight:700;cursor:pointer;margin-top:12px;display:inline-block}
 .lockcard .warn{font-size:11px;color:var(--amber);background:var(--amberbg);border-radius:9px;padding:8px 10px;margin-top:12px;line-height:1.4}
@@ -438,19 +438,29 @@ Respuesta: A"></textarea>
   </div>
 </div>
 
-<!-- CANDADO LOCAL (login) -->
+<!-- CANDADO LOCAL (login multiusuario) -->
 <div id="lockscreen">
   <div class="lockcard">
     <div class="logo">🩺</div>
     <h2 id="lock-title">Clínicas 6to Ciclo</h2>
-    <p class="sub" id="lock-sub">Crea tu perfil para entrar</p>
-    <input type="text" id="lock-user" placeholder="Usuario" autocomplete="username">
-    <input type="password" id="lock-pass" placeholder="Contraseña" autocomplete="current-password">
-    <input type="password" id="lock-pass2" placeholder="Repite la contraseña" autocomplete="new-password" style="display:none">
+    <p class="sub" id="lock-sub">Elige tu usuario para entrar</p>
+
+    <div id="lock-login-fields">
+      <select id="lock-user-select"></select>
+      <input type="password" id="lock-pass" placeholder="Contraseña" autocomplete="current-password">
+    </div>
+
+    <div id="lock-create-fields" style="display:none">
+      <input type="password" id="lock-admin" placeholder="Clave maestra (solo José)" autocomplete="off">
+      <input type="text" id="lock-newuser" placeholder="Nuevo usuario" autocomplete="username">
+      <input type="password" id="lock-newpass" placeholder="Nueva contraseña" autocomplete="new-password">
+      <input type="password" id="lock-newpass2" placeholder="Repite la nueva contraseña" autocomplete="new-password">
+    </div>
+
     <div class="err" id="lock-err"></div>
     <button class="go" id="lock-go" onclick="lockSubmit()">Entrar</button>
-    <span class="link" id="lock-reset" onclick="resetProfile()" style="display:none">¿Olvidaste tu clave? Reiniciar candado</span>
-    <div class="warn">🔒 Candado local: solo protege esta app en <b>este dispositivo</b>. No es seguridad de nivel bancario y no sincroniza entre equipos. Tus datos siguen guardándose en este navegador.</div>
+    <span class="link" id="lock-toggle" onclick="toggleLockMode()">+ Crear nuevo usuario (clave maestra requerida)</span>
+    <div class="warn">🔒 Candado local: cada usuario tiene sus propios datos, guardados solo en <b>este dispositivo</b>. No es seguridad de nivel bancario y no sincroniza entre equipos.</div>
   </div>
 </div>
 
@@ -523,21 +533,10 @@ Respuesta: A"></textarea>
 
 <script>
 // ============ ESTADO Y PERSISTENCIA ============
+// Los datos se cargan por usuario (ver sección de candado más abajo: loadFor/save
+// usan un almacenamiento distinto para cada cuenta) recién tras iniciar sesión.
 const STORAGE_KEY = 'clinicas6_data_v1';
-let DATA = load();
-
-function load(){
-  try{
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if(raw){
-      const d = JSON.parse(raw);
-      if(!d.ciclo) d.ciclo = {inicio:'', totalSemanas:18};
-      return d;
-    }
-  }catch(e){}
-  return seedDefault();
-}
-function save(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(DATA)); }
+let DATA = null;
 
 function seedDefault(){
   return { ciclo:{inicio:'', totalSemanas:18}, courses: [
@@ -1483,12 +1482,18 @@ async function aiExtractFromModal(){
   }
 }
 
-// ============ CANDADO LOCAL (login por dispositivo) ============
-// Nota honesta: NO es seguridad real. La clave se guarda hasheada (SHA-256 + sal)
+// ============ CANDADO LOCAL MULTIUSUARIO (cada usuario = su propia cuenta) ============
+// Nota honesta: NO es seguridad real. Las claves se guardan hasheadas (SHA-256 + sal)
 // solo en este navegador; alguien con las herramientas del navegador podría saltarlo.
-const AUTH_KEY='clinicas6_auth';
-function authGet(){ try{ return JSON.parse(localStorage.getItem(AUTH_KEY)||'null'); }catch(e){ return null; } }
-function authSet(o){ localStorage.setItem(AUTH_KEY, JSON.stringify(o)); }
+// Cada usuario tiene sus propios datos (cursos, semanas, etc.) totalmente separados.
+const USERS_KEY='clinicas6_users_v1';
+const CURRENT_USER_KEY='clinicas6_current_user_v1';
+const ADMIN_KEY='josecm'; // clave maestra para crear cuentas nuevas — solo la conoce José
+let CURRENT_USER=null;
+let LOCK_MODE='login';
+
+function usersGet(){ try{ return JSON.parse(localStorage.getItem(USERS_KEY)||'null'); }catch(e){ return null; } }
+function usersSet(list){ localStorage.setItem(USERS_KEY, JSON.stringify(list)); }
 function randHex(n){ const a=new Uint8Array(n); (crypto.getRandomValues?crypto.getRandomValues(a):a.forEach((_,i)=>a[i]=Math.floor(Math.random()*256))); return [...a].map(b=>b.toString(16).padStart(2,'0')).join(''); }
 async function hashPw(pw, salt){
   if(crypto.subtle){
@@ -1498,54 +1503,111 @@ async function hashPw(pw, salt){
   // fallback simple (contexto no seguro): mejor que texto plano, no criptográfico
   let h=0; const s=salt+':'+pw; for(let i=0;i<s.length;i++){ h=(h*31+s.charCodeAt(i))>>>0; } return 'x'+h.toString(16);
 }
-function showLock(mode){
-  const auth=authGet();
-  const isCreate = mode==='create' || !auth;
-  document.getElementById('lock-title').textContent = isCreate?'Crea tu perfil':'Bienvenido de vuelta';
-  document.getElementById('lock-sub').textContent = isCreate?'Un usuario y contraseña para entrar a la app':'Ingresa tu contraseña para continuar';
-  document.getElementById('lock-user').value = auth? auth.user : '';
-  document.getElementById('lock-user').readOnly = !isCreate && !!auth;
-  document.getElementById('lock-pass').value='';
-  document.getElementById('lock-pass2').value='';
-  document.getElementById('lock-pass2').style.display = isCreate?'block':'none';
+async function ensureDefaultUsers(){
+  let users = usersGet();
+  if(users && users.length) return users;
+  const mk = async (user,pw)=>{ const salt=randHex(8); return {user, salt, hash:await hashPw(pw,salt)}; };
+  users = [ await mk('josecm','josecm'), await mk('invitado','invitado123') ];
+  usersSet(users);
+  return users;
+}
+
+// ---- Datos por usuario: cada cuenta tiene su propio almacenamiento, aislado de las demás ----
+function dataKeyFor(user){ return STORAGE_KEY+'__'+user; }
+function loadFor(user){
+  try{
+    const raw = localStorage.getItem(dataKeyFor(user));
+    if(raw){ const d=JSON.parse(raw); if(!d.ciclo) d.ciclo={inicio:'',totalSemanas:18}; return d; }
+  }catch(e){}
+  return seedDefault();
+}
+function save(){ if(!CURRENT_USER) return; localStorage.setItem(dataKeyFor(CURRENT_USER), JSON.stringify(DATA)); }
+
+function populateUserSelect(users){
+  const sel=document.getElementById('lock-user-select');
+  sel.innerHTML = users.map(u=>`<option value="${escapeHtml(u.user)}">${escapeHtml(u.user)}</option>`).join('');
+  const last = localStorage.getItem(CURRENT_USER_KEY);
+  if(last && users.some(u=>u.user===last)) sel.value=last;
+}
+function toggleLockMode(){ LOCK_MODE = LOCK_MODE==='login' ? 'create' : 'login'; renderLockMode(); }
+function renderLockMode(){
+  const isCreate = LOCK_MODE==='create';
+  document.getElementById('lock-login-fields').style.display = isCreate?'none':'block';
+  document.getElementById('lock-create-fields').style.display = isCreate?'block':'none';
+  document.getElementById('lock-title').textContent = isCreate?'Crear nuevo usuario':'Clínicas 6to Ciclo';
+  document.getElementById('lock-sub').textContent = isCreate?'Requiere la clave maestra de José':'Elige tu usuario para entrar';
   document.getElementById('lock-go').textContent = isCreate?'Crear y entrar':'Entrar';
-  document.getElementById('lock-reset').style.display = isCreate?'none':'inline-block';
+  document.getElementById('lock-toggle').textContent = isCreate?'← Volver a iniciar sesión':'+ Crear nuevo usuario (clave maestra requerida)';
   document.getElementById('lock-err').textContent='';
+}
+async function showLock(){
+  const users = await ensureDefaultUsers();
+  populateUserSelect(users);
+  LOCK_MODE='login';
+  renderLockMode();
+  document.getElementById('lock-pass').value='';
+  document.getElementById('lock-admin').value='';
+  document.getElementById('lock-newuser').value='';
+  document.getElementById('lock-newpass').value='';
+  document.getElementById('lock-newpass2').value='';
   document.getElementById('lockscreen').classList.add('show');
-  document.getElementById('lock-'+(isCreate?'user':'pass')).focus();
+  document.getElementById('lock-pass').focus();
 }
 function hideLock(){ document.getElementById('lockscreen').classList.remove('show'); }
+async function loginAs(user, fresh){
+  CURRENT_USER = user;
+  localStorage.setItem(CURRENT_USER_KEY, user);
+  DATA = fresh ? seedDefault() : loadFor(user);
+  if(fresh) save();
+  sessionStorage.setItem('clinicas6_unlocked_user', user);
+  hideLock();
+  renderHome();
+}
 async function lockSubmit(){
-  const auth=authGet();
-  const user=document.getElementById('lock-user').value.trim();
-  const pw=document.getElementById('lock-pass').value;
   const err=document.getElementById('lock-err');
-  const isCreate=!auth;
-  if(isCreate){
-    const pw2=document.getElementById('lock-pass2').value;
-    if(!user){ err.textContent='Escribe un usuario.'; return; }
+  if(LOCK_MODE==='create'){
+    const adminKey=document.getElementById('lock-admin').value;
+    const newUser=document.getElementById('lock-newuser').value.trim();
+    const pw=document.getElementById('lock-newpass').value;
+    const pw2=document.getElementById('lock-newpass2').value;
+    if(adminKey!==ADMIN_KEY){ err.textContent='Clave maestra incorrecta.'; return; }
+    if(!newUser){ err.textContent='Escribe un nombre de usuario.'; return; }
+    const users = usersGet()||[];
+    if(users.some(u=>u.user.toLowerCase()===newUser.toLowerCase())){ err.textContent='Ese usuario ya existe.'; return; }
     if(pw.length<4){ err.textContent='La contraseña debe tener al menos 4 caracteres.'; return; }
     if(pw!==pw2){ err.textContent='Las contraseñas no coinciden.'; return; }
     const salt=randHex(8); const hash=await hashPw(pw,salt);
-    authSet({user, salt, hash});
-    sessionStorage.setItem('clinicas6_unlocked','1');
-    hideLock(); renderHome();
+    users.push({user:newUser, salt, hash});
+    usersSet(users);
+    await loginAs(newUser, true);
   }else{
-    const hash=await hashPw(pw, auth.salt);
-    if(hash===auth.hash){ sessionStorage.setItem('clinicas6_unlocked','1'); hideLock(); renderHome(); }
-    else err.textContent='Contraseña incorrecta.';
+    const user = document.getElementById('lock-user-select').value;
+    const pw = document.getElementById('lock-pass').value;
+    const users = usersGet()||[];
+    const acc = users.find(u=>u.user===user);
+    if(!acc){ err.textContent='Usuario no encontrado.'; return; }
+    const hash = await hashPw(pw, acc.salt);
+    if(hash!==acc.hash){ err.textContent='Contraseña incorrecta.'; return; }
+    await loginAs(user, false);
   }
 }
-function lockApp(){ sessionStorage.removeItem('clinicas6_unlocked'); showLock('login'); }
-function resetProfile(){
-  if(confirm('Esto borra tu usuario y contraseña (tus cursos y datos NO se borran). Podrás crear un perfil nuevo. ¿Continuar?')){
-    localStorage.removeItem(AUTH_KEY); sessionStorage.removeItem('clinicas6_unlocked'); showLock('create');
-  }
+function lockApp(){
+  sessionStorage.removeItem('clinicas6_unlocked_user');
+  CURRENT_USER=null;
+  document.getElementById('scr-home').innerHTML='';
+  document.getElementById('scr-course').innerHTML='';
+  showLock();
 }
-function bootApp(){
-  renderHome();
-  if(sessionStorage.getItem('clinicas6_unlocked')==='1'){ hideLock(); return; }
-  showLock(authGet()?'login':'create');
+async function bootApp(){
+  const users = await ensureDefaultUsers();
+  const sessUser = sessionStorage.getItem('clinicas6_unlocked_user');
+  if(sessUser && users.some(u=>u.user===sessUser)){
+    CURRENT_USER=sessUser;
+    DATA=loadFor(sessUser);
+    renderHome();
+    return;
+  }
+  showLock();
 }
 
 // ============ IA: completar (reutilizable) ============
