@@ -602,6 +602,20 @@ Respuesta: A"></textarea>
   </div>
 </div>
 
+<!-- MODAL: Diagnóstico de sincronización en la nube -->
+<div class="modal-overlay" id="modal-fbdiag">
+  <div class="modal modal-wrap">
+    <button class="closex" aria-label="Cerrar" onclick="closeFbDiag()">✕</button>
+    <h3>🔌 Estado de la nube</h3>
+    <p class="hint">Esto te dice si tus datos también se están guardando en tu cuenta (no solo en este dispositivo).</p>
+    <pre id="fbdiag-text" style="white-space:pre-wrap;font-size:13px;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:12px;line-height:1.7"></pre>
+    <div class="modal-actions">
+      <button class="cancel" onclick="closeFbDiag()">Cerrar</button>
+      <button class="confirm" onclick="fbDiagRetry()">🔄 Probar de nuevo</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL: Exámenes por curso -->
 <div class="modal-overlay" id="modal-examenes">
   <div class="modal modal-wrap">
@@ -958,6 +972,7 @@ function renderHome(){
       <button onclick="openHorario()">🗓 Horario</button>
       <button onclick="openExportModal()">⬇ Exportar</button>
       <button onclick="openImportModal()">⬆ Importar</button>
+      <button onclick="openFbDiag()">🔌 Nube</button>
     </div>
     <div class="courses-label">Cursos del Ciclo ${cicloRoman}</div>
     <div class="courses">
@@ -2530,6 +2545,7 @@ const firebaseConfig = {
   appId: "1:162679771930:web:b15c888abeadae37e212a3"
 };
 let FIREBASE_OK = false, fbAuth = null, fbDb = null, CURRENT_UID = null;
+let FB_LAST_ERROR = null; // guarda el último problema, en español, para mostrarlo en el diagnóstico de la app
 try{
   if(typeof firebase!=='undefined'){
     firebase.initializeApp(firebaseConfig);
@@ -2540,8 +2556,10 @@ try{
     // que el candado local permite.
     fbAuth.setPersistence(firebase.auth.Auth.Persistence.SESSION).catch(()=>{});
     FIREBASE_OK = true;
+  } else {
+    FB_LAST_ERROR = 'El script de Firebase no llegó a cargar en este navegador (revisa tu conexión al abrir la página).';
   }
-}catch(e){ console.error('Firebase no se pudo inicializar:', e); FIREBASE_OK = false; }
+}catch(e){ console.error('Firebase no se pudo inicializar:', e); FIREBASE_OK = false; FB_LAST_ERROR = 'No se pudo iniciar Firebase: '+(e&&e.message||e); }
 let _fbReadyPromise = null;
 function fbAuthReady(){
   if(!FIREBASE_OK) return Promise.resolve(null);
@@ -2564,13 +2582,15 @@ async function fbSignInOrCreate(user, pw){
   const email = emailForUser(user);
   try{
     const cred = await fbAuth.signInWithEmailAndPassword(email, pw);
+    FB_LAST_ERROR = null;
     return cred.user;
   }catch(e){
     if(e && e.code==='auth/user-not-found'){
-      try{ const cred = await fbAuth.createUserWithEmailAndPassword(email, pw); return cred.user; }
-      catch(e2){ console.error('No se pudo crear la cuenta en la nube:', e2); return null; }
+      try{ const cred = await fbAuth.createUserWithEmailAndPassword(email, pw); FB_LAST_ERROR = null; return cred.user; }
+      catch(e2){ console.error('No se pudo crear la cuenta en la nube:', e2); FB_LAST_ERROR = 'No se pudo crear tu cuenta en la nube: '+(e2&&(e2.code||e2.message)||e2); return null; }
     }
     console.error('No se pudo entrar a la nube (se sigue trabajando en local):', e);
+    FB_LAST_ERROR = 'No se pudo entrar a la nube: '+(e&&(e.code||e.message)||e);
     return null;
   }
 }
@@ -2578,10 +2598,11 @@ async function fbLoadData(uid){
   if(!FIREBASE_OK || !uid) return null;
   try{
     const snap = await fbDb.collection('usuarios').doc(uid).get();
+    FB_LAST_ERROR = null;
     if(!snap.exists) return null;
     const raw = snap.data().data;
     return raw ? JSON.parse(raw) : null;
-  }catch(e){ console.error('No se pudo leer de la nube:', e); return null; }
+  }catch(e){ console.error('No se pudo leer de la nube:', e); FB_LAST_ERROR = 'No se pudo leer de la nube: '+(e&&(e.code||e.message)||e); return null; }
 }
 let _fbSaveTimer = null;
 function fbSaveDataDebounced(uid, dataObj){
@@ -2591,13 +2612,35 @@ function fbSaveDataDebounced(uid, dataObj){
     fbDb.collection('usuarios').doc(uid).set({
       data: JSON.stringify(dataObj),
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-    }).catch(e=>console.error('No se pudo guardar en la nube (se sigue guardando en local):', e));
+    }).then(()=>{ FB_LAST_ERROR = null; })
+      .catch(e=>{ console.error('No se pudo guardar en la nube (se sigue guardando en local):', e); FB_LAST_ERROR = 'No se pudo guardar en la nube: '+(e&&(e.code||e.message)||e); });
   }, 1200);
 }
 // Con un timeout: si la red está lenta/caída, no dejamos al usuario esperando en la
 // pantalla de candado — se sigue con lo que haya en local tras unos segundos.
 function withTimeout(promise, ms){
   return Promise.race([promise, new Promise(r=>setTimeout(()=>r(null), ms))]);
+}
+// ---- Diagnóstico visible en la app (sin necesitar consola del navegador) ----
+function fbDiagText(){
+  const lines = [];
+  lines.push('Script de Firebase cargado: ' + (typeof firebase!=='undefined' ? 'Sí' : 'No'));
+  lines.push('Conexión inicializada: ' + (FIREBASE_OK ? 'Sí' : 'No'));
+  lines.push('Sesión en la nube: ' + (FIREBASE_OK && fbAuth && fbAuth.currentUser ? fbAuth.currentUser.email : 'No logueado'));
+  lines.push('ID de cuenta (UID): ' + (CURRENT_UID || '—'));
+  lines.push('Último error: ' + (FB_LAST_ERROR || 'ninguno'));
+  return lines.join('\n');
+}
+function openFbDiag(){
+  document.getElementById('fbdiag-text').textContent = fbDiagText();
+  document.getElementById('modal-fbdiag').classList.add('show');
+}
+function closeFbDiag(){ document.getElementById('modal-fbdiag').classList.remove('show'); }
+async function fbDiagRetry(){
+  document.getElementById('fbdiag-text').textContent = 'Probando conexión...';
+  await fbAuthReady();
+  if(CURRENT_UID) await withTimeout(fbLoadData(CURRENT_UID), 6000);
+  document.getElementById('fbdiag-text').textContent = fbDiagText();
 }
 
 // ============ CANDADO LOCAL MULTIUSUARIO (cada usuario = su propia cuenta) ============
