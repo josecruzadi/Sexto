@@ -10,11 +10,25 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <style>*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 :root{
-  --em:#6D28D9;--em2:#4F46E5;--emd:#3730A3;--eml:#8B5CF6;
+  color-scheme:light dark;
+  --em:#6D28D9;--em2:#4F46E5;--emd:#3730A3;--eml:#8B5CF6;--heading:#3730A3;
   --bg:#f5f4fb;--card:#ffffff;--ink:#1e1b2e;--grey:#6b6480;--line:#e6e1f7;
   --okbg:#eef0ff;--ok:#4338ca;--badbg:#fdecf0;--bad:#c0325c;
   --amber:#9a6400;--amberbg:#fdf5e3;
   --shadow:0 2px 12px rgba(76,29,149,.10);--shadow2:0 6px 24px rgba(76,29,149,.16);
+}
+/* Tema oscuro: mismos nombres de variable, valores ajustados para fondo oscuro.
+   --emd se deja igual a propósito — solo se usa como fondo de gradientes con texto
+   blanco encima, así que un morado oscuro sigue funcionando en ambos temas; lo que
+   cambia es --heading, la variable para texto de títulos sobre tarjetas. */
+@media (prefers-color-scheme: dark){
+  :root{
+    --em:#a78bfa;--em2:#818cf8;--eml:#c4b5fd;--heading:#d8c9fb;
+    --bg:#14111f;--card:#1f1a30;--ink:#ece9f9;--grey:#a89fc9;--line:#372c54;
+    --okbg:#1e2749;--ok:#a5b4fc;--badbg:#3a1220;--bad:#fb7185;
+    --amber:#fbbf24;--amberbg:#3a2c0a;
+    --shadow:0 2px 12px rgba(0,0,0,.35);--shadow2:0 6px 24px rgba(0,0,0,.45);
+  }
 }
 html{-webkit-text-size-adjust:100%}
 body{font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
@@ -43,7 +57,7 @@ body{font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
 .course-del{position:absolute;top:12px;right:12px;width:24px;height:24px;border-radius:8px;border:none;
   background:var(--badbg);color:var(--bad);font-size:12px;font-weight:800;cursor:pointer;
   display:flex;align-items:center;justify-content:center;line-height:1}
-.course-card .cname{font-weight:800;font-size:15px;color:var(--emd);padding-right:26px}
+.course-card .cname{font-weight:800;font-size:15px;color:var(--heading);padding-right:26px}
 .course-card .ctype{font-size:11.5px;color:var(--grey);margin-top:2px;font-style:italic}
 .course-card .cmeta{display:flex;gap:10px;margin-top:9px}
 .course-card .badge{font-size:11px;font-weight:700;padding:3px 9px;border-radius:8px}
@@ -79,7 +93,7 @@ body{font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
 /* ===== Notas y evaluación (componentes ponderados) ===== */
 .eval-comp{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:8px}
 .eval-comp-head{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px;flex-wrap:wrap}
-.eval-comp-head b{color:var(--emd)}
+.eval-comp-head b{color:var(--heading)}
 .eval-peso{font-size:11px;font-weight:800;color:var(--em);background:var(--okbg);padding:2px 7px;border-radius:7px;margin-left:6px}
 .eval-comp-actions{display:flex;gap:12px;white-space:nowrap}
 .eval-rows{display:flex;flex-direction:column;gap:6px;margin-top:9px}
@@ -97,7 +111,7 @@ body{font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
 .eval-peso.sub{background:var(--line);color:var(--grey)}
 .draft-sub-list{margin-left:14px;border-left:2px solid var(--line);padding-left:8px}
 .eval-final{text-align:center;margin-top:12px;padding-top:12px;border-top:1px dashed var(--line)}
-.eval-final-num{font-size:30px;font-weight:800;color:var(--emd)}
+.eval-final-num{font-size:30px;font-weight:800;color:var(--heading)}
 .eval-final-num span{font-size:15px;font-weight:700;color:var(--grey)}
 .eval-final-sub{font-size:11.5px;color:var(--grey);margin-top:2px}
 
@@ -105,7 +119,7 @@ body{font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
 .week{background:var(--card);border-radius:14px;margin-bottom:10px;box-shadow:var(--shadow);
   border:1px solid var(--line);overflow:hidden}
 .week-head{padding:13px 15px;display:flex;justify-content:space-between;align-items:center;cursor:pointer}
-.week-head .wn{font-weight:800;font-size:13.5px;color:var(--emd)}
+.week-head .wn{font-weight:800;font-size:13.5px;color:var(--heading)}
 .week-head .wt{font-size:12.5px;color:var(--grey);margin-top:2px}
 .week-head .exbadge{background:var(--badbg);color:var(--bad);font-size:10px;font-weight:800;
   padding:3px 8px;border-radius:8px;margin-left:6px;text-transform:uppercase}
@@ -129,7 +143,7 @@ textarea.resumen-ta:focus{outline:none;border-color:var(--em)}
   padding:9px 14px;font-size:12.5px;font-weight:700;cursor:pointer}
 
 .qitem{background:var(--okbg);border-radius:10px;padding:10px 12px;margin-bottom:8px;font-size:12.5px}
-.qitem .qq{font-weight:700;color:var(--emd)}
+.qitem .qq{font-weight:700;color:var(--heading)}
 .qitem .qmeta{display:flex;gap:6px;margin-top:6px}
 .qitem .qmeta button{font-size:11px;border:none;border-radius:6px;padding:4px 8px;cursor:pointer;font-weight:700}
 .qitem .del{background:var(--badbg);color:var(--bad)}
@@ -142,14 +156,19 @@ textarea.resumen-ta:focus{outline:none;border-color:var(--em)}
 .modal-overlay{display:none;position:fixed;inset:0;background:rgba(2,20,15,.55);z-index:100;
   align-items:flex-end;justify-content:center}
 .modal-overlay.show{display:flex}
-.modal{background:#fff;border-radius:18px 18px 0 0;padding:20px;width:100%;max-width:680px;
+.modal{background:var(--card);border-radius:18px 18px 0 0;padding:20px;width:100%;max-width:680px;
   max-height:85vh;overflow-y:auto;animation:slideup .25s}
 @keyframes slideup{from{transform:translateY(30px);opacity:0}to{transform:none;opacity:1}}
-.modal h3{font-size:16px;font-weight:800;color:var(--emd);margin-bottom:12px}
+.modal h3{font-size:16px;font-weight:800;color:var(--heading);margin-bottom:12px}
 .modal label{font-size:12px;font-weight:700;color:var(--grey);display:block;margin:10px 0 5px}
-.modal input[type=text],.modal input[type=number],.modal textarea,.modal select{
+/* Los <input>/<select>/<textarea> traen fondo blanco por defecto del navegador,
+   que no sigue el tema oscuro solo. Se fuerzan las variables en todos lados. */
+input,select,textarea{background:var(--card);color:var(--ink)}
+.modal input[type=text],.modal input[type=number],.modal input[type=password],
+.modal input[type=date],.modal input[type=time],.modal input[type=datetime-local],
+.modal textarea,.modal select{
   width:100%;border:1.5px solid var(--line);border-radius:9px;padding:10px;font-size:14px;
-  font-family:inherit}
+  font-family:inherit;background:var(--card);color:var(--ink)}
 .modal textarea{min-height:70px}
 .fileinput{border:2px dashed var(--line);border-radius:12px;padding:20px;text-align:center;
   cursor:pointer;color:var(--grey);font-size:13px}
@@ -174,7 +193,7 @@ textarea.resumen-ta:focus{outline:none;border-color:var(--em)}
 
 /* Quiz jugable */
 .quiz-modal .qtext{font-size:15px;font-weight:600;margin:10px 0}
-.opt{background:#fff;border:1.5px solid var(--line);border-radius:12px;padding:12px 14px;
+.opt{background:var(--card);border:1.5px solid var(--line);border-radius:12px;padding:12px 14px;
   font-size:14px;cursor:pointer;margin-bottom:8px;display:flex;gap:10px}
 .opt.correct{border-color:var(--ok);background:var(--okbg)}
 .opt.wrong{border-color:var(--bad);background:var(--badbg)}
@@ -202,7 +221,7 @@ textarea.resumen-ta:focus{outline:none;border-color:var(--em)}
 /* ===== Mi Camino (mapa de la malla curricular, tipo juego) ===== */
 .camino-banner{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:13px 15px;
   margin-bottom:12px;cursor:pointer;box-shadow:var(--shadow)}
-.camino-banner .cb-top{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px;font-weight:800;color:var(--emd)}
+.camino-banner .cb-top{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px;font-weight:800;color:var(--heading)}
 .camino-banner .cb-top .cp-edit{font-size:11px;font-weight:700;color:var(--em);white-space:nowrap}
 .camino-banner .cb-dots{display:flex;gap:4px;flex-wrap:wrap;margin-top:9px}
 .camino-banner .cb-dot{width:13px;height:13px;border-radius:50%;background:var(--line)}
@@ -220,7 +239,7 @@ textarea.resumen-ta:focus{outline:none;border-color:var(--em)}
 .camino-node.current{background:linear-gradient(135deg,var(--emd),var(--em));box-shadow:0 0 0 5px rgba(109,40,217,.22)}
 .camino-node.locked{background:var(--line);color:var(--grey);box-shadow:none}
 .camino-content{cursor:pointer;padding:6px 0 6px 4px}
-.camino-content .cl-name{font-weight:800;font-size:13px;color:var(--emd);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.camino-content .cl-name{font-weight:800;font-size:13px;color:var(--heading);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .camino-content .cl-sub{font-size:11px;color:var(--grey);margin-top:2px}
 .camino-badge{font-size:9.5px;font-weight:800;padding:2px 7px;border-radius:7px;text-transform:uppercase}
 .camino-badge.done{background:var(--okbg);color:var(--em)}
@@ -239,7 +258,7 @@ textarea.resumen-ta:focus{outline:none;border-color:var(--em)}
   text-align:center;cursor:pointer;box-shadow:var(--shadow)}
 .actionbar .act:active{transform:scale(.97)}
 .actionbar .act .ic{font-size:18px}
-.actionbar .act .lb{font-size:11px;font-weight:800;color:var(--emd);margin-top:2px}
+.actionbar .act .lb{font-size:11px;font-weight:800;color:var(--heading);margin-top:2px}
 .actionbar .act .cnt{font-size:11px;font-weight:800;color:#fff;background:var(--bad);border-radius:20px;
   padding:0 6px;display:inline-block;margin-top:3px;min-width:16px}
 .actionbar .act.primary{background:linear-gradient(135deg,var(--em),var(--eml))}
@@ -256,7 +275,7 @@ textarea.resumen-ta:focus{outline:none;border-color:var(--em)}
 .opt.sel{border-color:var(--em);background:var(--okbg)}
 .exam-nav{display:flex;gap:8px;margin-top:12px}
 .exam-nav .navbtn{flex:1;background:var(--card);border:1.5px solid var(--line);border-radius:10px;padding:11px;
-  font-weight:800;font-size:13px;cursor:pointer;color:var(--emd)}
+  font-weight:800;font-size:13px;cursor:pointer;color:var(--heading)}
 .exam-nav .navbtn:disabled{opacity:.4;cursor:default}
 .exam-nav .navbtn.fin{background:var(--em);color:#fff;border-color:var(--em)}
 .rev-item{border-radius:10px;padding:9px 11px;margin-bottom:7px;border-left:4px solid var(--line)}
@@ -266,10 +285,10 @@ textarea.resumen-ta:focus{outline:none;border-color:var(--em)}
 /* ===== Estadísticas ===== */
 .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
 .stat-card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;text-align:center;box-shadow:var(--shadow)}
-.stat-card .big{font-size:24px;font-weight:800;color:var(--emd)}
+.stat-card .big{font-size:24px;font-weight:800;color:var(--heading)}
 .stat-card .lb{font-size:11px;color:var(--grey);font-weight:700;margin-top:2px}
 .course-stat{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:11px 13px;margin-bottom:8px}
-.course-stat .csn{font-weight:800;font-size:13px;color:var(--emd)}
+.course-stat .csn{font-weight:800;font-size:13px;color:var(--heading)}
 .bar{height:7px;background:var(--line);border-radius:5px;overflow:hidden;margin-top:6px}
 .bar > i{display:block;height:100%;background:var(--em)}
 .course-stat .row{display:flex;justify-content:space-between;font-size:11.5px;color:var(--grey);margin-top:5px}
@@ -284,11 +303,11 @@ textarea.resumen-ta:focus{outline:none;border-color:var(--em)}
 #lockscreen{position:fixed;inset:0;z-index:200;background:linear-gradient(150deg,var(--emd),var(--em) 60%,var(--eml));
   display:none;align-items:center;justify-content:center;padding:20px}
 #lockscreen.show{display:flex}
-.lockcard{background:#fff;border-radius:20px;padding:26px 22px;width:100%;max-width:360px;box-shadow:var(--shadow2);text-align:center}
+.lockcard{background:var(--card);border-radius:20px;padding:26px 22px;width:100%;max-width:360px;box-shadow:var(--shadow2);text-align:center}
 .lockcard .logo{font-size:34px}
-.lockcard h2{font-size:19px;font-weight:800;color:var(--emd);margin-top:6px}
+.lockcard h2{font-size:19px;font-weight:800;color:var(--heading);margin-top:6px}
 .lockcard p.sub{font-size:12.5px;color:var(--grey);margin-top:4px;line-height:1.45}
-.lockcard input,.lockcard select{width:100%;border:1.5px solid var(--line);border-radius:11px;padding:12px;font-size:15px;margin-top:10px;font-family:inherit;background:#fff}
+.lockcard input,.lockcard select{width:100%;border:1.5px solid var(--line);border-radius:11px;padding:12px;font-size:15px;margin-top:10px;font-family:inherit;background:var(--card);color:var(--ink)}
 .lockcard input:focus,.lockcard select:focus{outline:none;border-color:var(--em)}
 .lockcard .go{width:100%;background:var(--em);color:#fff;border:none;border-radius:11px;padding:13px;font-weight:800;font-size:15px;cursor:pointer;margin-top:12px}
 .lockcard .link{font-size:11.5px;color:var(--em);font-weight:700;cursor:pointer;margin-top:12px;display:inline-block}
@@ -298,7 +317,7 @@ textarea.resumen-ta:focus{outline:none;border-color:var(--em)}
 
 /* ===== Diapositivas por semana ===== */
 .slides-bar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;background:var(--bg);border-radius:10px;padding:8px 10px;margin:10px 0}
-.slides-up{font-size:12px;font-weight:700;color:var(--em2);cursor:pointer;background:#fff;border:1.5px dashed var(--em2);border-radius:8px;padding:6px 10px}
+.slides-up{font-size:12px;font-weight:700;color:var(--em2);cursor:pointer;background:var(--card);border:1.5px dashed var(--em2);border-radius:8px;padding:6px 10px}
 .slides-bar .mini{font-size:11px;font-weight:700;border:none;border-radius:7px;padding:6px 9px;cursor:pointer;background:var(--okbg);color:var(--em)}
 .slides-bar .mini.danger{background:var(--badbg);color:var(--bad)}
 .slides-bar .hint{width:100%;margin-top:2px}
@@ -307,29 +326,32 @@ textarea.resumen-ta:focus{outline:none;border-color:var(--em)}
 .horario-day{margin-bottom:10px}
 .horario-day h4{font-size:12px;font-weight:800;color:var(--em2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px}
 .clase{display:flex;justify-content:space-between;align-items:center;background:var(--okbg);border-radius:9px;padding:8px 11px;margin-bottom:6px}
-.clase .ci{font-size:13px;font-weight:700;color:var(--emd)}
+.clase .ci{font-size:13px;font-weight:700;color:var(--heading)}
 .clase .cd{font-size:11.5px;color:var(--grey)}
 .clase .cactions{display:flex;gap:5px}
 .clase .cactions button{font-size:11px;border:none;border-radius:6px;padding:5px 8px;cursor:pointer;font-weight:700}
-.clase .cal{background:#fff;color:var(--em)}
+.clase .cal{background:var(--card);color:var(--em)}
 .clase .rm{background:var(--badbg);color:var(--bad)}
 .form-row{display:flex;gap:8px}
 .form-row > *{flex:1}
 
 /* ===== Exámenes ===== */
 .exam-card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:9px;box-shadow:var(--shadow)}
-.exam-card .en{font-weight:800;font-size:14px;color:var(--emd)}
+.exam-card .en{font-weight:800;font-size:14px;color:var(--heading)}
 .exam-card .ew{font-size:11.5px;color:var(--grey);margin-top:2px}
 .exam-card .eactions{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
 .exam-card .eactions button{font-size:11.5px;border:none;border-radius:8px;padding:7px 10px;cursor:pointer;font-weight:700;background:var(--okbg);color:var(--em)}
 .exam-card .eactions button.cal{background:#eaf1ff;color:#2456c8}
+@media (prefers-color-scheme: dark){
+  .exam-card .eactions button.cal{background:#1a2b4d;color:#8ab4ff}
+}
 .exam-card .eactions button.rm{background:var(--badbg);color:var(--bad)}
 .wkpick{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
 .wkpick label{font-size:11.5px;background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:5px 8px;cursor:pointer;display:flex;align-items:center;gap:4px}
 .wkpick label.on{background:var(--okbg);border-color:var(--em);color:var(--em);font-weight:700}
 .wkpick input{display:none}
 .res-tema{background:var(--card);border:1px solid var(--line);border-radius:11px;padding:11px 13px;margin-bottom:8px}
-.res-tema .rt{font-weight:800;font-size:13px;color:var(--emd)}
+.res-tema .rt{font-weight:800;font-size:13px;color:var(--heading)}
 .res-tema .rc{font-size:12.5px;color:var(--ink);margin-top:5px;white-space:pre-wrap;line-height:1.5}
 .res-tema .rtemas{font-size:11.5px;color:var(--grey);margin-top:4px}
 
