@@ -1176,6 +1176,13 @@ function isSubsequence(needle, haystack){
   }
   return i===needle.length;
 }
+// Forma "canónica" de una etiqueta de evaluación: sin tildes, mayúsculas, solo
+// letras/números. Así "(EVA 3 B)", "(Práctica laboratorio 1)" y "ep1" se pueden
+// comparar entre sí y con los términos de la fórmula del PROMO sin que espacios,
+// tildes o mayúsculas/minúsculas generen falsos negativos.
+function canonTag(s){
+  return (s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/[^A-Z0-9]/g,'');
+}
 function parseComponentesConTags(text){
   if(!text) return null;
   const t = text.replace(/\s+/g,' ').trim();
@@ -1184,58 +1191,63 @@ function parseComponentesConTags(text){
   const calcMatch = t.slice(headMatch.index).match(/c[aá]lculo para la nota final/i);
   const zonaEndAbs = calcMatch ? headMatch.index+calcMatch.index : Math.min(t.length, headMatch.index+4000);
   const zona = t.slice(headMatch.index+headMatch[0].length, zonaEndAbs);
-  // Etiquetas tipo "(COMP1) 7%" / "(SC1) 15%" (Semiología), pero también
-  // "(EP1) 20%" / "(EF) 30%" / "(EVA 3A) 20%" (Diagnóstico): el número y el
-  // sufijo de letra son opcionales para cubrir ambos formatos reales de UPAO.
-  const tagRe = /\(([A-Za-z]{2,6})\s*0*(\d*)\s*([A-Za-z]?)\)\s*(\d{1,3}(?:[.,]\d+)?)\s*%/g;
+  // Cualquier "(texto) NN%" es una posible etiqueta: puede ser un código corto
+  // ("COMP1", "SC1", "EP1", "EF") o una frase completa ("Práctica laboratorio 1"),
+  // según el sílabo. El pdf a veces separa los dígitos del porcentaje con espacios
+  // sueltos (ej. "2 0 %"), así que el número tolera espacios internos.
+  const tagRe = /\(([^()]{1,40})\)\s*((?:\d\s?){1,3}(?:[.,]\s?\d+)?)\s*%/g;
   const items = []; let m; let lastEnd = 0;
   while((m = tagRe.exec(zona))){
-    const tipo = m[1].toUpperCase();
-    const num = m[2] ? parseInt(m[2]) : null;
-    const suffix = (m[3]||'').toUpperCase();
-    const peso = parseFloat(m[4].replace(',','.'));
+    const raw = m[1].trim();
+    const peso = parseFloat(m[2].replace(/\s+/g,'').replace(',','.'));
     const rawSeg = zona.slice(lastEnd, m.index);
-    // Un "■"/"•" justo antes de la etiqueta marca un subcomponente (formato Diagnóstico).
-    const bullet = /^\s*[■•]/.test(rawSeg);
-    const nombre = rawSeg.replace(/^[\s.:,\-■•]+/,'').replace(/[\s.:,\-]+$/,'').trim();
+    // Un "■"/"•"/"▪" justo antes de la etiqueta marca un subcomponente (formato Diagnóstico/CI4).
+    const bullet = /^\s*[■•▪]/.test(rawSeg);
+    const nombre = rawSeg.replace(/^[\s.:,\-■•▪]+/,'').replace(/[\s.:,\-]+$/,'').trim();
     lastEnd = m.index + m[0].length;
-    if(peso>0 && peso<=100) items.push({tipo, num, suffix, peso, nombre, bullet});
+    if(peso>0 && peso<=100) items.push({raw, key:canonTag(raw), peso, nombre, bullet, isSC:/^SC\d*$/i.test(raw)});
   }
   if(!items.length) return null;
-  // Cruce con la fórmula "PROMO = NN%*COMP1 + ..." / "NN%*EP1 + ..." si existe,
-  // para confirmar los pesos reales de cada componente en la nota final (más
-  // confiable que el orden del texto). Si la etiqueta no calza exacto (typo del
-  // sílabo, ej. "EF" vs "EVF"), se busca la más parecida por subsecuencia.
+  // La fórmula "PROMO = NN%*TAG + ..." nombra exactamente los componentes de nivel
+  // superior (los que arman la nota final): todo lo que aparece entre una etiqueta
+  // de la fórmula y la siguiente es su subcomponente. Esto es más confiable que
+  // adivinar por viñetas o prefijos, porque hay sílabos (ej. Patología) donde los
+  // subcomponentes no llevan ninguna marca visual. Si la etiqueta no calza exacto
+  // con la fórmula (typo del sílabo, ej. "EF" vs "EVF"), se acepta la más parecida
+  // por subsecuencia de letras, solo si su longitud es similar (evita que un texto
+  // largo tipo "Ex P1 a P7" calce por casualidad con una etiqueta corta "EP1").
   const formulaMap = {};
   const formulaMatch = t.match(/promo\s*=\s*([\s\S]{0,600}?)(?:\n\n|todas las evaluaciones|$)/i);
   if(formulaMatch){
-    const fr = /(\d{1,3}(?:[.,]\d+)?)\s*%\s*\*\s*([a-z]{2,6}\d*)/gi;
-    let fm; while((fm = fr.exec(formulaMatch[1]))){ formulaMap[fm[2].toUpperCase()] = parseFloat(fm[1].replace(',','.')); }
+    const fr = /((?:\d\s?){1,3}(?:[.,]\s?\d+)?)\s*%\s*\*\s*([a-z]{2,10}\d*)/gi;
+    let fm; while((fm = fr.exec(formulaMatch[1]))){ formulaMap[canonTag(fm[2])] = parseFloat(fm[1].replace(/\s+/g,'').replace(',','.')); }
+  }
+  const formulaKeys = Object.keys(formulaMap);
+  function matchFormula(key){
+    if(formulaMap[key]!=null) return key;
+    let best=null;
+    formulaKeys.forEach(k=>{
+      if(Math.abs(k.length-key.length)>2) return;
+      if(isSubsequence(key,k) || isSubsequence(k,key)){
+        if(!best || Math.abs(k.length-key.length) < Math.abs(best.length-key.length)) best=k;
+      }
+    });
+    return best;
   }
   const comps = []; let current = null;
   items.forEach(it=>{
-    const tagKey = (it.tipo + (it.num!=null?it.num:'') + it.suffix).toUpperCase();
-    // COMP siempre es de nivel superior; SC siempre es subcomponente; el resto de
-    // etiquetas (EP, EF, EVA...) se clasifica según si vino marcada con viñeta.
-    const isTop = it.tipo==='COMP' || (it.tipo!=='SC' && !it.bullet);
+    const formulaHit = formulaKeys.length ? matchFormula(it.key) : null;
+    // Con fórmula disponible, una etiqueta es de nivel superior si aparece en ella;
+    // sin fórmula, se usa el indicio visual (viñeta o prefijo "SC" = subcomponente).
+    const isTop = formulaKeys.length ? !!formulaHit : (!it.isSC && !it.bullet);
     if(isTop){
-      let peso = formulaMap[tagKey];
-      if(peso==null){
-        let best=null;
-        Object.keys(formulaMap).forEach(k=>{
-          if(isSubsequence(tagKey,k) || isSubsequence(k,tagKey)){
-            if(!best || Math.abs(k.length-tagKey.length) < Math.abs(best.length-tagKey.length)) best=k;
-          }
-        });
-        if(best) peso = formulaMap[best];
-      }
-      if(peso==null) peso = it.peso;
-      const nom = (it.nombre && it.nombre.length<=60) ? it.nombre : ('Componente '+(it.num!=null?it.num:tagKey));
+      const peso = formulaHit ? formulaMap[formulaHit] : it.peso;
+      const nom = (it.nombre && it.nombre.length<=60) ? it.nombre : ('Componente '+it.raw);
       current = { nombre: capWords(nom.toLowerCase()), peso, sub:[] };
       comps.push(current);
     }else if(current){
       let nom = it.nombre;
-      if(!nom || nom.length>60) nom = it.tipo+(it.num!=null?it.num:'')+it.suffix; // nombre "sucio" (tabla mezclada): usa la etiqueta
+      if(!nom || nom.length>60) nom = it.raw; // nombre "sucio" (tabla mezclada): usa la etiqueta
       current.sub.push({ nombre: capWords(nom.toLowerCase()), peso: it.peso });
     }
   });
@@ -1992,10 +2004,18 @@ function parseWeeksFromPdfPositions(items){
   const rows = groupPdfRows(items);
   const headers = [];
   rows.forEach((r,idx)=>{
-    const nItem = r.items.find(it=>/de semana/i.test(it.str));
     const cItem = r.items.find(it=>/^contenidos/i.test(it.str));
     const aItem = r.items.find(it=>/^actividades/i.test(it.str));
-    if(nItem && cItem && aItem) headers.push({rowIdx:idx, x0:nItem.x, x1:cItem.x, x2:aItem.x});
+    if(!cItem || !aItem) return;
+    // La celda "N° de semana" / "N° Semanas" a veces se envuelve en su propia línea,
+    // 1-2 filas arriba o abajo de "Contenidos/Actividades" (columna más angosta).
+    let nItem = r.items.find(it=>/semana/i.test(it.str));
+    for(let d=1; d<=3 && !nItem; d++){
+      const above = rows[idx-d], below = rows[idx+d];
+      if(above && above.page===r.page) nItem = above.items.find(it=>/semana/i.test(it.str));
+      if(!nItem && below && below.page===r.page) nItem = below.items.find(it=>/semana/i.test(it.str));
+    }
+    if(nItem) headers.push({rowIdx:idx, x0:nItem.x, x1:cItem.x, x2:aItem.x});
   });
   if(!headers.length) return [];
   const weeksMap = {};
@@ -2022,7 +2042,8 @@ function parseWeeksFromPdfPositions(items){
       });
       const col0Text = col0.join('').replace(/\s+/g,'').trim();
       const col1Text = col1.join(' ').replace(/\s+/g,' ').trim();
-      const numMatch = col0Text.match(/^0?(\d{1,2})$/);
+      // Algunos sílabos numeran la fila como "01" y otros como "Semana 1".
+      const numMatch = col0Text.match(/^(?:semana)?0?(\d{1,2})$/i);
       if(numMatch){ flush(); currentWeek = parseInt(numMatch[1]); contentParts=[]; }
       if(col1Text && !/^contenidos/i.test(col1Text)) contentParts.push(col1Text);
     }
