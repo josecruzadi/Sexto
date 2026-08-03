@@ -8,6 +8,9 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.11.0/mammoth.browser.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <style>*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 :root{
   color-scheme:light dark;
@@ -2512,6 +2515,91 @@ async function aiExtractFromModal(){
   }
 }
 
+// ============ SINCRONIZACIÓN EN LA NUBE (Firebase: Auth + Firestore) ============
+// Diseño "offline-first": localStorage sigue siendo la copia rápida/local de siempre
+// (la app funciona 100% sin internet), y Firebase es una capa opcional encima: si hay
+// conexión, los datos también quedan en la cuenta y se pueden ver desde otro dispositivo.
+// Si Firebase no carga (sin internet, bloqueado, etc.) la app sigue funcionando igual
+// que antes, solo que sin sincronizar — nunca debe bloquear el uso normal.
+const firebaseConfig = {
+  apiKey: "AIzaSyBqgi6g-YC2hDQpy1J_AC0JdkLZAvCaVwM",
+  authDomain: "myci-b6f21.firebaseapp.com",
+  projectId: "myci-b6f21",
+  storageBucket: "myci-b6f21.firebasestorage.app",
+  messagingSenderId: "162679771930",
+  appId: "1:162679771930:web:b15c888abeadae37e212a3"
+};
+let FIREBASE_OK = false, fbAuth = null, fbDb = null, CURRENT_UID = null;
+try{
+  if(typeof firebase!=='undefined'){
+    firebase.initializeApp(firebaseConfig);
+    fbAuth = firebase.auth();
+    fbDb = firebase.firestore();
+    // Misma duración que el candado de la app (sessionStorage): se cierra sola al
+    // cerrar la pestaña, para no dejar una sesión de Firebase viva más tiempo del
+    // que el candado local permite.
+    fbAuth.setPersistence(firebase.auth.Auth.Persistence.SESSION).catch(()=>{});
+    FIREBASE_OK = true;
+  }
+}catch(e){ console.error('Firebase no se pudo inicializar:', e); FIREBASE_OK = false; }
+let _fbReadyPromise = null;
+function fbAuthReady(){
+  if(!FIREBASE_OK) return Promise.resolve(null);
+  if(_fbReadyPromise) return _fbReadyPromise;
+  _fbReadyPromise = new Promise(resolve=>{
+    const unsub = fbAuth.onAuthStateChanged(u=>{ unsub(); resolve(u); });
+  });
+  return _fbReadyPromise;
+}
+// Firebase Auth exige un correo; el usuario solo maneja su nombre de usuario, así que
+// derivamos un correo "sintético" fijo a partir del username (nunca se envía nada ahí).
+function emailForUser(user){
+  return String(user||'').toLowerCase().replace(/[^a-z0-9._-]/g,'_')+'@clinicas6.app';
+}
+// Entra a Firebase con usuario+contraseña; si la cuenta local es más vieja que esta
+// función (usuarios creados antes de tener nube), la crea en Firebase en ese momento.
+// Nunca lanza: si algo falla (sin internet, etc.) devuelve null y la app sigue en local.
+async function fbSignInOrCreate(user, pw){
+  if(!FIREBASE_OK) return null;
+  const email = emailForUser(user);
+  try{
+    const cred = await fbAuth.signInWithEmailAndPassword(email, pw);
+    return cred.user;
+  }catch(e){
+    if(e && e.code==='auth/user-not-found'){
+      try{ const cred = await fbAuth.createUserWithEmailAndPassword(email, pw); return cred.user; }
+      catch(e2){ console.error('No se pudo crear la cuenta en la nube:', e2); return null; }
+    }
+    console.error('No se pudo entrar a la nube (se sigue trabajando en local):', e);
+    return null;
+  }
+}
+async function fbLoadData(uid){
+  if(!FIREBASE_OK || !uid) return null;
+  try{
+    const snap = await fbDb.collection('usuarios').doc(uid).get();
+    if(!snap.exists) return null;
+    const raw = snap.data().data;
+    return raw ? JSON.parse(raw) : null;
+  }catch(e){ console.error('No se pudo leer de la nube:', e); return null; }
+}
+let _fbSaveTimer = null;
+function fbSaveDataDebounced(uid, dataObj){
+  if(!FIREBASE_OK || !uid) return;
+  clearTimeout(_fbSaveTimer);
+  _fbSaveTimer = setTimeout(()=>{
+    fbDb.collection('usuarios').doc(uid).set({
+      data: JSON.stringify(dataObj),
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    }).catch(e=>console.error('No se pudo guardar en la nube (se sigue guardando en local):', e));
+  }, 1200);
+}
+// Con un timeout: si la red está lenta/caída, no dejamos al usuario esperando en la
+// pantalla de candado — se sigue con lo que haya en local tras unos segundos.
+function withTimeout(promise, ms){
+  return Promise.race([promise, new Promise(r=>setTimeout(()=>r(null), ms))]);
+}
+
 // ============ CANDADO LOCAL MULTIUSUARIO (cada usuario = su propia cuenta) ============
 // Nota honesta: NO es seguridad real. Las claves se guardan hasheadas (SHA-256 + sal)
 // solo en este navegador; alguien con las herramientas del navegador podría saltarlo.
@@ -2594,14 +2682,32 @@ function normalizeData(d){
   });
   return d;
 }
-function loadFor(user){
+// Si hay sesión en la nube (uid), compara qué copia es más reciente (campo
+// "updatedAt" que pone save() en cada guardado) y usa esa — así, si entraste
+// desde otro dispositivo más reciente, no te quedas con la copia vieja de este.
+async function loadFor(user, uid){
+  let local = null;
   try{
     const raw = localStorage.getItem(dataKeyFor(user));
-    if(raw) return normalizeData(JSON.parse(raw));
+    if(raw) local = normalizeData(JSON.parse(raw));
   }catch(e){}
-  return seedDefault();
+  if(!local) local = seedDefault();
+  if(!uid) return local;
+  const remote = await withTimeout(fbLoadData(uid), 5000);
+  if(!remote) return local;
+  const remoteNorm = normalizeData(remote);
+  if((remoteNorm.updatedAt||0) > (local.updatedAt||0)){
+    localStorage.setItem(dataKeyFor(user), JSON.stringify(remoteNorm));
+    return remoteNorm;
+  }
+  return local;
 }
-function save(){ if(!CURRENT_USER) return; localStorage.setItem(dataKeyFor(CURRENT_USER), JSON.stringify(DATA)); }
+function save(){
+  if(!CURRENT_USER) return;
+  DATA.updatedAt = Date.now();
+  localStorage.setItem(dataKeyFor(CURRENT_USER), JSON.stringify(DATA));
+  if(CURRENT_UID) fbSaveDataDebounced(CURRENT_UID, DATA);
+}
 
 function populateUserSelect(users){
   const sel=document.getElementById('lock-user-select');
@@ -2634,10 +2740,13 @@ async function showLock(){
   document.getElementById('lock-pass').focus();
 }
 function hideLock(){ document.getElementById('lockscreen').classList.remove('show'); }
-async function loginAs(user, fresh){
+async function loginAs(user, fresh, uid){
   CURRENT_USER = user;
+  CURRENT_UID = uid || null;
   localStorage.setItem(CURRENT_USER_KEY, user);
-  DATA = fresh ? seedDefault() : loadFor(user);
+  if(CURRENT_UID) sessionStorage.setItem('clinicas6_unlocked_uid', CURRENT_UID);
+  else sessionStorage.removeItem('clinicas6_unlocked_uid');
+  DATA = fresh ? seedDefault() : await loadFor(user, CURRENT_UID);
   syncCoursesForCiclo(getCicloActualIndex());
   save();
   sessionStorage.setItem('clinicas6_unlocked_user', user);
@@ -2660,7 +2769,9 @@ async function lockSubmit(){
     const salt=randHex(8); const hash=await hashPw(pw,salt);
     users.push({user:newUser, salt, hash});
     usersSet(users);
-    await loginAs(newUser, true);
+    await fbAuthReady();
+    const fbUser = await withTimeout(fbSignInOrCreate(newUser, pw), 6000);
+    await loginAs(newUser, true, fbUser?fbUser.uid:null);
   }else{
     const user = document.getElementById('lock-user-select').value;
     const pw = document.getElementById('lock-pass').value;
@@ -2669,23 +2780,30 @@ async function lockSubmit(){
     if(!acc){ err.textContent='Usuario no encontrado.'; return; }
     const hash = await hashPw(pw, acc.salt);
     if(hash!==acc.hash){ err.textContent='Contraseña incorrecta.'; return; }
-    await loginAs(user, false);
+    await fbAuthReady();
+    const fbUser = await withTimeout(fbSignInOrCreate(user, pw), 6000);
+    await loginAs(user, false, fbUser?fbUser.uid:null);
   }
 }
 function lockApp(){
   sessionStorage.removeItem('clinicas6_unlocked_user');
-  CURRENT_USER=null;
+  sessionStorage.removeItem('clinicas6_unlocked_uid');
+  CURRENT_USER=null; CURRENT_UID=null;
+  if(FIREBASE_OK && fbAuth) fbAuth.signOut().catch(()=>{});
   document.getElementById('scr-home').innerHTML='';
   document.getElementById('scr-course').innerHTML='';
   showLock();
 }
 async function bootApp(){
   migrateLegacyData();
+  await fbAuthReady();
   const users = await ensureDefaultUsers();
   const sessUser = sessionStorage.getItem('clinicas6_unlocked_user');
+  const sessUid = sessionStorage.getItem('clinicas6_unlocked_uid');
   if(sessUser && users.some(u=>u.user===sessUser)){
     CURRENT_USER=sessUser;
-    DATA=loadFor(sessUser);
+    CURRENT_UID = (sessUid && fbAuth && fbAuth.currentUser && fbAuth.currentUser.uid===sessUid) ? sessUid : null;
+    DATA = await loadFor(sessUser, CURRENT_UID);
     syncCoursesForCiclo(getCicloActualIndex());
     save();
     renderHome();
