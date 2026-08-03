@@ -79,9 +79,14 @@ body{font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
 .eval-comp-head b{color:var(--emd)}
 .eval-peso{font-size:11px;font-weight:800;color:var(--em);background:var(--okbg);padding:2px 7px;border-radius:7px;margin-left:6px}
 .eval-comp-actions{display:flex;gap:12px;white-space:nowrap}
-.eval-notas{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
-.eval-nota-chip{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:4px 8px;font-size:11.5px}
-.eval-nota-chip i{font-style:normal;color:var(--bad);margin-left:6px;cursor:pointer;font-weight:800}
+.eval-rows{display:flex;flex-direction:column;gap:6px;margin-top:9px}
+.eval-row{display:flex;align-items:center;gap:6px}
+.eval-row-label{flex:1;min-width:0;border:1.5px solid var(--line);border-radius:8px;padding:7px 9px;font-size:12.5px;font-family:inherit}
+.eval-row-label:focus{outline:none;border-color:var(--em)}
+.eval-row-input{width:58px;flex:none;border:1.5px solid var(--line);border-radius:8px;padding:7px 6px;font-size:13px;font-family:inherit;text-align:center}
+.eval-row-input:focus{outline:none;border-color:var(--em)}
+.eval-row-scale{font-size:10.5px;color:var(--grey);font-weight:700;flex:none}
+.eval-row-del{flex:none;background:var(--badbg);color:var(--bad);border:none;border-radius:7px;width:26px;height:26px;font-size:11px;font-weight:800;cursor:pointer}
 .eval-comp-avg{font-size:11.5px;color:var(--grey);margin-top:7px;font-weight:700}
 .eval-final{text-align:center;margin-top:12px;padding-top:12px;border-top:1px dashed var(--line)}
 .eval-final-num{font-size:30px;font-weight:800;color:var(--emd)}
@@ -1002,16 +1007,17 @@ function escapeHtml(s){
   return (s||'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 }
 
-// ============ NOTAS Y EVALUACIÓN (componentes ponderados por curso) ============
+// ============ NOTAS Y EVALUACIÓN (menú fijo de notas por componente, ponderado) ============
 function promedioComp(comp){
-  if(!comp.notas.length) return null;
-  return comp.notas.reduce((s,n)=>s+n.valor,0)/comp.notas.length;
+  const vals = comp.notas.filter(n=>n.valor!=null && !isNaN(n.valor)).map(n=>n.valor);
+  if(!vals.length) return null;
+  return vals.reduce((a,b)=>a+b,0)/vals.length;
 }
 // Promedio ponderado con lo registrado hasta ahora: cada componente aporta su
 // promedio multiplicado por su peso, normalizado sobre el peso de los componentes
-// que ya tienen al menos una nota (así no castiga lo que aún no se ha rendido).
+// que ya tienen al menos una nota puesta (así no castiga lo que aún no se ha rendido).
 function notaFinalCurso(c){
-  const comps = (c.evaluacion||[]).filter(cp=>cp.notas.length>0);
+  const comps = (c.evaluacion||[]).filter(cp=>promedioComp(cp)!=null);
   if(!comps.length) return null;
   const pesoEvaluado = comps.reduce((a,cp)=>a+cp.peso,0);
   if(pesoEvaluado<=0) return null;
@@ -1026,8 +1032,13 @@ function addEvalComponente(courseId){
   if(pesoStr===null) return;
   const peso = parseFloat(pesoStr.replace(',','.'));
   if(!(peso>0 && peso<=100)){ alert('El porcentaje debe ser un número entre 1 y 100.'); return; }
+  const cantStr = prompt('¿Cuántas notas tendrá "'+nombre.trim()+'"? (ej: 3 exámenes parciales). Se arma el menú y luego solo escribes cada nota — puedes agregar más filas después.', '3');
+  let cant = parseInt(cantStr)||1;
+  if(cant<1) cant=1; if(cant>30) cant=30;
+  const comp = mkEvalComp(nombre.trim(), peso);
+  for(let i=1;i<=cant;i++) comp.notas.push(mkNota(nombre.trim()+' '+i, null));
   c.evaluacion = c.evaluacion||[];
-  c.evaluacion.push(mkEvalComp(nombre.trim(), peso));
+  c.evaluacion.push(comp);
   save(); renderCourse(courseId);
 }
 function deleteEvalComponente(courseId, compId){
@@ -1036,21 +1047,32 @@ function deleteEvalComponente(courseId, compId){
   c.evaluacion = (c.evaluacion||[]).filter(cp=>cp.id!==compId);
   save(); renderCourse(courseId);
 }
-function addNota(courseId, compId){
+// Agrega una fila más al menú (sin prompt: solo aparece lista para llenar)
+function addNotaRow(courseId, compId){
   const c = DATA.courses.find(x=>x.id===courseId);
   const comp = (c.evaluacion||[]).find(cp=>cp.id===compId);
-  const etiqueta = prompt('¿Qué nota es? (ej: Examen parcial, Práctica 2 — opcional)') || '';
-  const valorStr = prompt('Nota obtenida (escala 0-20):');
-  if(valorStr===null) return;
-  const valor = parseFloat(valorStr.replace(',','.'));
-  if(isNaN(valor) || valor<0 || valor>20){ alert('Ingresa una nota válida entre 0 y 20.'); return; }
-  comp.notas.push(mkNota(etiqueta.trim(), valor));
+  comp.notas.push(mkNota(comp.nombre+' '+(comp.notas.length+1), null));
   save(); renderCourse(courseId);
 }
 function deleteNota(courseId, compId, notaId){
   const c = DATA.courses.find(x=>x.id===courseId);
   const comp = (c.evaluacion||[]).find(cp=>cp.id===compId);
   comp.notas = comp.notas.filter(n=>n.id!==notaId);
+  save(); renderCourse(courseId);
+}
+function updateNotaEtiqueta(courseId, compId, notaId, val){
+  const c = DATA.courses.find(x=>x.id===courseId);
+  const comp = (c.evaluacion||[]).find(cp=>cp.id===compId);
+  const n = comp.notas.find(x=>x.id===notaId);
+  n.etiqueta = val;
+  save(); renderCourse(courseId);
+}
+function updateNotaValor(courseId, compId, notaId, val){
+  const c = DATA.courses.find(x=>x.id===courseId);
+  const comp = (c.evaluacion||[]).find(cp=>cp.id===compId);
+  const n = comp.notas.find(x=>x.id===notaId);
+  if(val===''||val==null) n.valor = null;
+  else{ const num = parseFloat(String(val).replace(',','.')); n.valor = isNaN(num) ? null : Math.max(0, Math.min(20, num)); }
   save(); renderCourse(courseId);
 }
 function renderEvalBox(c){
@@ -1065,15 +1087,21 @@ function renderEvalBox(c){
         <div class="eval-comp-head">
           <div><b>${escapeHtml(cp.nombre)}</b><span class="eval-peso">${cp.peso}%</span></div>
           <div class="eval-comp-actions">
-            <span class="togglelink" onclick="addNota('${c.id}','${cp.id}')">+ Nota</span>
+            <span class="togglelink" onclick="addNotaRow('${c.id}','${cp.id}')">+ Fila</span>
             <span class="togglelink" style="color:var(--bad)" onclick="deleteEvalComponente('${c.id}','${cp.id}')">Eliminar</span>
           </div>
         </div>
-        ${cp.notas.length ? `<div class="eval-notas">${cp.notas.map(n=>`<span class="eval-nota-chip">${escapeHtml(n.etiqueta||'Nota')}: <b>${n.valor}</b><i onclick="deleteNota('${c.id}','${cp.id}','${n.id}')">✕</i></span>`).join('')}</div>`
-          : `<div class="hint" style="margin-top:5px">Sin notas todavía.</div>`}
-        <div class="eval-comp-avg">${prom!=null ? 'Promedio del componente: <b>'+prom.toFixed(2)+'</b>/20' : 'Aún sin promedio'}</div>
+        <div class="eval-rows">
+          ${cp.notas.map(n=>`<div class="eval-row">
+            <input type="text" class="eval-row-label" value="${escapeHtml(n.etiqueta)}" placeholder="Nombre de la nota" onchange="updateNotaEtiqueta('${c.id}','${cp.id}','${n.id}', this.value)">
+            <input type="number" class="eval-row-input" min="0" max="20" step="0.01" placeholder="—" value="${n.valor==null?'':n.valor}" onchange="updateNotaValor('${c.id}','${cp.id}','${n.id}', this.value)">
+            <span class="eval-row-scale">/20</span>
+            <button class="eval-row-del" onclick="deleteNota('${c.id}','${cp.id}','${n.id}')" title="Eliminar fila">✕</button>
+          </div>`).join('')}
+        </div>
+        <div class="eval-comp-avg">${prom!=null ? 'Promedio del componente: <b>'+prom.toFixed(2)+'</b>/20' : 'Aún faltan notas por escribir'}</div>
       </div>`;
-    }).join('') : `<div class="empty-hint" style="padding:14px 6px">Agrega los componentes de evaluación de este curso (los que trae tu sílabo: exámenes, prácticas, casos clínicos...) y su peso. Cada nota que subas se promedia sola dentro de su componente, y esos promedios se combinan según su peso para tu nota final.</div>`}
+    }).join('') : `<div class="empty-hint" style="padding:14px 6px">Agrega los componentes de evaluación de este curso (los que trae tu sílabo: exámenes, prácticas, casos clínicos...), su peso y cuántas notas tendrá. Se arma el menú con una fila por cada nota — solo escribes el número al costado y se promedia y pondera solo.</div>`}
     <button class="addqbtn" onclick="addEvalComponente('${c.id}')">+ Agregar componente de evaluación</button>
     ${pesoTotal>0 && pesoTotal!==100 ? `<div class="hint" style="color:var(--amber);margin-top:8px">⚠ Los pesos suman ${pesoTotal}% (deberían sumar 100% según tu sílabo).</div>` : ''}
     <div class="eval-final">
