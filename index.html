@@ -1721,6 +1721,19 @@ async function ensureDefaultUsers(){
 }
 
 // ---- Datos por usuario: cada cuenta tiene su propio almacenamiento, aislado de las demás ----
+// Migración única: antes de tener multiusuario, todo se guardaba en STORAGE_KEY a secas.
+// Si esos datos "viejos" siguen ahí y la cuenta josecm todavía no tiene nada propio,
+// los recuperamos en vez de dejarlos huérfanos (esto es lo que borraba los sílabos).
+function migrateLegacyData(){
+  try{
+    const legacyRaw = localStorage.getItem(STORAGE_KEY);
+    if(!legacyRaw) return;
+    const targetKey = dataKeyFor('josecm');
+    if(!localStorage.getItem(targetKey)){
+      localStorage.setItem(targetKey, legacyRaw);
+    }
+  }catch(e){}
+}
 function dataKeyFor(user){ return STORAGE_KEY+'__'+user; }
 function loadFor(user){
   try{
@@ -1807,6 +1820,7 @@ function lockApp(){
   showLock();
 }
 async function bootApp(){
+  migrateLegacyData();
   const users = await ensureDefaultUsers();
   const sessUser = sessionStorage.getItem('clinicas6_unlocked_user');
   if(sessUser && users.some(u=>u.user===sessUser)){
