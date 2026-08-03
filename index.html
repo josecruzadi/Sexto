@@ -2585,9 +2585,23 @@ async function fbSignInOrCreate(user, pw){
     FB_LAST_ERROR = null;
     return cred.user;
   }catch(e){
-    if(e && e.code==='auth/user-not-found'){
+    // Firebase Auth ya no distingue "cuenta no existe" de "contraseña incorrecta": desde
+    // que Google unificó el error por seguridad (anti-enumeración), ambos casos llegan
+    // como 'auth/invalid-credential' (antes era 'auth/user-not-found'). Probamos a crear
+    // la cuenta; si ya existía de verdad, createUser fallará con 'auth/email-already-in-use'
+    // y ahí sí sabemos que es una contraseña que no coincide.
+    if(e && (e.code==='auth/user-not-found' || e.code==='auth/invalid-credential')){
       try{ const cred = await fbAuth.createUserWithEmailAndPassword(email, pw); FB_LAST_ERROR = null; return cred.user; }
-      catch(e2){ console.error('No se pudo crear la cuenta en la nube:', e2); FB_LAST_ERROR = 'No se pudo crear tu cuenta en la nube: '+(e2&&(e2.code||e2.message)||e2); return null; }
+      catch(e2){
+        if(e2 && e2.code==='auth/email-already-in-use'){
+          console.error('Contraseña de la nube no coincide con la local:', e2);
+          FB_LAST_ERROR = 'Tu cuenta en la nube ya existe pero con otra contraseña (cámbiala igual en ambos lados, o avísame).';
+          return null;
+        }
+        console.error('No se pudo crear la cuenta en la nube:', e2);
+        FB_LAST_ERROR = 'No se pudo crear tu cuenta en la nube: '+(e2&&(e2.code||e2.message)||e2);
+        return null;
+      }
     }
     console.error('No se pudo entrar a la nube (se sigue trabajando en local):', e);
     FB_LAST_ERROR = 'No se pudo entrar a la nube: '+(e&&(e.code||e.message)||e);
