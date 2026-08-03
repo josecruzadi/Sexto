@@ -27,7 +27,8 @@ App web para acompañarte durante toda la carrera de Medicina Humana: sube el s�
 
 **4. Por cada semana**
 - 📝 **Resumen** — escribe o pega tus apuntes (o súbeles diapositivas y genera resumen/preguntas con IA).
-- 📚 **Banco de preguntas** — preguntas de opción múltiple con explicación, para practicar en modo quiz o repaso espaciado.
+- 📚 **Banco de preguntas** — preguntas de opción múltiple con explicación, para practicar en modo quiz o repaso espaciado. Se agregan a mano, en lote (pegando texto con formato), o subiendo un PDF/Word con preguntas ya hechas para que la IA las extraiga (sin inventar nada nuevo).
+- 🗺️ **Guía de estudio** — con IA, a partir de tus diapositivas o resumen: qué debes saber sí o sí antes de la clase, y un repaso de refuerzo para después.
 
 **5. Notas y evaluación**
 - Los componentes de evaluación (y sus subcomponentes, si el sílabo los trae) quedan armados como un menú: solo escribes la calificación en cada casillero.
