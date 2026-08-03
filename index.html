@@ -3,18 +3,18 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<meta name="theme-color" content="#047857">
+<meta name="theme-color" content="#3730A3">
 <title>Clínicas 6to Ciclo · UPAO</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.11.0/mammoth.browser.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <style>*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 :root{
-  --em:#047857;--em2:#0B9C74;--emd:#02513B;--eml:#059669;
-  --bg:#f6faf8;--card:#ffffff;--ink:#12201b;--grey:#5c6b64;--line:#e3efe9;
-  --okbg:#e7f6ef;--ok:#047857;--badbg:#fdecf0;--bad:#c0325c;
+  --em:#6D28D9;--em2:#4F46E5;--emd:#3730A3;--eml:#8B5CF6;
+  --bg:#f5f4fb;--card:#ffffff;--ink:#1e1b2e;--grey:#6b6480;--line:#e6e1f7;
+  --okbg:#eef0ff;--ok:#4338ca;--badbg:#fdecf0;--bad:#c0325c;
   --amber:#9a6400;--amberbg:#fdf5e3;
-  --shadow:0 2px 12px rgba(2,81,59,.07);--shadow2:0 6px 24px rgba(2,81,59,.13);
+  --shadow:0 2px 12px rgba(76,29,149,.10);--shadow2:0 6px 24px rgba(76,29,149,.16);
 }
 html{-webkit-text-size-adjust:100%}
 body{font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
@@ -35,11 +35,15 @@ body{font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
 @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 
 /* Lista de cursos */
+.courses-label{font-size:11.5px;font-weight:800;color:var(--grey);text-transform:uppercase;letter-spacing:.05em;margin:2px 2px 8px}
 .courses{display:flex;flex-direction:column;gap:11px}
-.course-card{background:var(--card);border-radius:16px;padding:16px;box-shadow:var(--shadow);
+.course-card{position:relative;background:var(--card);border-radius:16px;padding:16px;box-shadow:var(--shadow);
   border:1px solid var(--line);border-left:4px solid var(--em);cursor:pointer}
 .course-card:active{transform:scale(.98)}
-.course-card .cname{font-weight:800;font-size:15px;color:var(--emd)}
+.course-del{position:absolute;top:12px;right:12px;width:24px;height:24px;border-radius:8px;border:none;
+  background:var(--badbg);color:var(--bad);font-size:12px;font-weight:800;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;line-height:1}
+.course-card .cname{font-weight:800;font-size:15px;color:var(--emd);padding-right:26px}
 .course-card .ctype{font-size:11.5px;color:var(--grey);margin-top:2px;font-style:italic}
 .course-card .cmeta{display:flex;gap:10px;margin-top:9px}
 .course-card .badge{font-size:11px;font-weight:700;padding:3px 9px;border-radius:8px}
@@ -68,6 +72,21 @@ body{font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
   border:1px solid var(--line);border-radius:8px;padding:8px;font-size:11.5px;font-family:monospace;color:var(--grey)}
 .silabo-box textarea.rawtext.show{max-height:200px;overflow:auto;margin-top:8px}
 .togglelink{font-size:11.5px;color:var(--em);font-weight:700;cursor:pointer;text-decoration:underline}
+
+/* ===== Notas y evaluación (componentes ponderados) ===== */
+.eval-comp{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:8px}
+.eval-comp-head{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px;flex-wrap:wrap}
+.eval-comp-head b{color:var(--emd)}
+.eval-peso{font-size:11px;font-weight:800;color:var(--em);background:var(--okbg);padding:2px 7px;border-radius:7px;margin-left:6px}
+.eval-comp-actions{display:flex;gap:12px;white-space:nowrap}
+.eval-notas{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.eval-nota-chip{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:4px 8px;font-size:11.5px}
+.eval-nota-chip i{font-style:normal;color:var(--bad);margin-left:6px;cursor:pointer;font-weight:800}
+.eval-comp-avg{font-size:11.5px;color:var(--grey);margin-top:7px;font-weight:700}
+.eval-final{text-align:center;margin-top:12px;padding-top:12px;border-top:1px dashed var(--line)}
+.eval-final-num{font-size:30px;font-weight:800;color:var(--emd)}
+.eval-final-num span{font-size:15px;font-weight:700;color:var(--grey)}
+.eval-final-sub{font-size:11.5px;color:var(--grey);margin-top:2px}
 
 /* Semanas */
 .week{background:var(--card);border-radius:14px;margin-bottom:10px;box-shadow:var(--shadow);
@@ -155,6 +174,52 @@ textarea.resumen-ta:focus{outline:none;border-color:var(--em)}
 .toolbar button{flex:1;background:var(--card);border:1px solid var(--line);border-radius:10px;
   padding:9px;font-size:12px;font-weight:700;color:var(--em);cursor:pointer}
 .empty-hint{text-align:center;color:var(--grey);padding:30px 15px;font-size:13.5px;line-height:1.5}
+/* ===== Barra de progreso del ciclo (semana actual) ===== */
+.ciclo-progress{background:linear-gradient(135deg,var(--emd),var(--em) 70%,var(--eml));border-radius:16px;
+  padding:14px 16px;margin-bottom:12px;color:#fff;cursor:pointer;box-shadow:var(--shadow2)}
+.ciclo-progress .cp-top{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13.5px;font-weight:800}
+.ciclo-progress .cp-edit{font-size:11px;font-weight:700;opacity:.85;text-decoration:underline;white-space:nowrap}
+.ciclo-progress .cp-bar{height:9px;background:rgba(255,255,255,.28);border-radius:6px;overflow:hidden;margin-top:10px}
+.ciclo-progress .cp-bar>i{display:block;height:100%;background:#fff;border-radius:6px;transition:width .3s}
+.ciclo-progress .cp-sub{font-size:11.5px;opacity:.88;margin-top:7px}
+.week.current{border-left:4px solid var(--em);box-shadow:var(--shadow2)}
+.week-head .nowbadge{background:var(--okbg);color:var(--em);font-size:10px;font-weight:800;
+  padding:3px 8px;border-radius:8px;margin-left:6px;text-transform:uppercase}
+
+/* ===== Mi Camino (mapa de la malla curricular, tipo juego) ===== */
+.camino-banner{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:13px 15px;
+  margin-bottom:12px;cursor:pointer;box-shadow:var(--shadow)}
+.camino-banner .cb-top{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px;font-weight:800;color:var(--emd)}
+.camino-banner .cb-top .cp-edit{font-size:11px;font-weight:700;color:var(--em);white-space:nowrap}
+.camino-banner .cb-dots{display:flex;gap:4px;flex-wrap:wrap;margin-top:9px}
+.camino-banner .cb-dot{width:13px;height:13px;border-radius:50%;background:var(--line)}
+.camino-banner .cb-dot.done{background:var(--em)}
+.camino-banner .cb-dot.current{background:var(--eml);box-shadow:0 0 0 3px rgba(109,40,217,.25)}
+.camino-banner .cb-sub{font-size:11px;color:var(--grey);margin-top:7px}
+
+.camino-wrap{position:relative;padding-left:38px;margin-top:6px}
+.camino-wrap::before{content:'';position:absolute;left:17px;top:6px;bottom:6px;width:3px;background:var(--line);border-radius:3px}
+.camino-item{position:relative;margin-bottom:12px}
+.camino-node{position:absolute;left:-38px;top:0;width:38px;height:38px;border-radius:50%;display:flex;
+  align-items:center;justify-content:center;font-weight:800;font-size:15px;color:#fff;cursor:pointer;
+  box-shadow:var(--shadow);border:3px solid #fff;z-index:1}
+.camino-node.done{background:linear-gradient(135deg,var(--em),var(--eml))}
+.camino-node.current{background:linear-gradient(135deg,var(--emd),var(--em));box-shadow:0 0 0 5px rgba(109,40,217,.22)}
+.camino-node.locked{background:var(--line);color:var(--grey);box-shadow:none}
+.camino-content{cursor:pointer;padding:6px 0 6px 4px}
+.camino-content .cl-name{font-weight:800;font-size:13px;color:var(--emd);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.camino-content .cl-sub{font-size:11px;color:var(--grey);margin-top:2px}
+.camino-badge{font-size:9.5px;font-weight:800;padding:2px 7px;border-radius:7px;text-transform:uppercase}
+.camino-badge.done{background:var(--okbg);color:var(--em)}
+.camino-badge.here{background:var(--emd);color:#fff}
+.camino-detail{background:var(--okbg);border-radius:10px;padding:10px 12px;margin:2px 0 8px;font-size:12px}
+.camino-detail .cd-list{padding-left:16px}
+.camino-detail .cd-list li{margin:3px 0}
+.camino-detail .cd-tag{font-size:9.5px;color:var(--em2);font-weight:700;text-transform:uppercase}
+.camino-detail .cd-nota{margin-top:7px;font-size:11.5px;color:var(--grey)}
+.camino-summary{text-align:center;font-size:11.5px;color:var(--grey);font-weight:700;margin-top:6px;
+  padding-top:10px;border-top:1px dashed var(--line)}
+
 /* ===== Barra de acciones (home) ===== */
 .actionbar{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px}
 .actionbar .act{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:11px 8px;
@@ -172,7 +237,7 @@ textarea.resumen-ta:focus{outline:none;border-color:var(--em)}
 .grade-row{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
 .grade{border:none;border-radius:9px;padding:10px 4px;font-size:12px;font-weight:800;cursor:pointer;color:#fff}
 .grade.again{background:#c0325c}.grade.hard{background:#9a6400}
-.grade.good{background:var(--em)}.grade.easy{background:#0B9C74}
+.grade.good{background:var(--em)}.grade.easy{background:var(--em2)}
 
 /* ===== Examen / simulacro ===== */
 .opt.sel{border-color:var(--em);background:var(--okbg)}
@@ -210,8 +275,8 @@ textarea.resumen-ta:focus{outline:none;border-color:var(--em)}
 .lockcard .logo{font-size:34px}
 .lockcard h2{font-size:19px;font-weight:800;color:var(--emd);margin-top:6px}
 .lockcard p.sub{font-size:12.5px;color:var(--grey);margin-top:4px;line-height:1.45}
-.lockcard input{width:100%;border:1.5px solid var(--line);border-radius:11px;padding:12px;font-size:15px;margin-top:10px;font-family:inherit}
-.lockcard input:focus{outline:none;border-color:var(--em)}
+.lockcard input,.lockcard select{width:100%;border:1.5px solid var(--line);border-radius:11px;padding:12px;font-size:15px;margin-top:10px;font-family:inherit;background:#fff}
+.lockcard input:focus,.lockcard select:focus{outline:none;border-color:var(--em)}
 .lockcard .go{width:100%;background:var(--em);color:#fff;border:none;border-radius:11px;padding:13px;font-weight:800;font-size:15px;cursor:pointer;margin-top:12px}
 .lockcard .link{font-size:11.5px;color:var(--em);font-weight:700;cursor:pointer;margin-top:12px;display:inline-block}
 .lockcard .warn{font-size:11px;color:var(--amber);background:var(--amberbg);border-radius:9px;padding:8px 10px;margin-top:12px;line-height:1.4}
@@ -262,7 +327,7 @@ textarea.resumen-ta:focus{outline:none;border-color:var(--em)}
   <div class="top">
     <button class="lockbtn" onclick="lockApp()">🔒 Bloquear</button>
     <div class="brand">UPAO · Medicina Humana</div>
-    <div class="ttl">🩺 6to Ciclo — Clínicas</div>
+    <div class="ttl" id="app-title">🩺 Ciclo VI — Año 3</div>
     <div class="sub">Sílabos, plan semanal, resúmenes y bancos por curso</div>
   </div>
 
@@ -426,19 +491,29 @@ Respuesta: A"></textarea>
   </div>
 </div>
 
-<!-- CANDADO LOCAL (login) -->
+<!-- CANDADO LOCAL (login multiusuario) -->
 <div id="lockscreen">
   <div class="lockcard">
     <div class="logo">🩺</div>
     <h2 id="lock-title">Clínicas 6to Ciclo</h2>
-    <p class="sub" id="lock-sub">Crea tu perfil para entrar</p>
-    <input type="text" id="lock-user" placeholder="Usuario" autocomplete="username">
-    <input type="password" id="lock-pass" placeholder="Contraseña" autocomplete="current-password">
-    <input type="password" id="lock-pass2" placeholder="Repite la contraseña" autocomplete="new-password" style="display:none">
+    <p class="sub" id="lock-sub">Elige tu usuario para entrar</p>
+
+    <div id="lock-login-fields">
+      <select id="lock-user-select"></select>
+      <input type="password" id="lock-pass" placeholder="Contraseña" autocomplete="current-password">
+    </div>
+
+    <div id="lock-create-fields" style="display:none">
+      <input type="password" id="lock-admin" placeholder="Clave maestra (solo José)" autocomplete="off">
+      <input type="text" id="lock-newuser" placeholder="Nuevo usuario" autocomplete="username">
+      <input type="password" id="lock-newpass" placeholder="Nueva contraseña" autocomplete="new-password">
+      <input type="password" id="lock-newpass2" placeholder="Repite la nueva contraseña" autocomplete="new-password">
+    </div>
+
     <div class="err" id="lock-err"></div>
     <button class="go" id="lock-go" onclick="lockSubmit()">Entrar</button>
-    <span class="link" id="lock-reset" onclick="resetProfile()" style="display:none">¿Olvidaste tu clave? Reiniciar candado</span>
-    <div class="warn">🔒 Candado local: solo protege esta app en <b>este dispositivo</b>. No es seguridad de nivel bancario y no sincroniza entre equipos. Tus datos siguen guardándose en este navegador.</div>
+    <span class="link" id="lock-toggle" onclick="toggleLockMode()">+ Crear nuevo usuario (clave maestra requerida)</span>
+    <div class="warn">🔒 Candado local: cada usuario tiene sus propios datos, guardados solo en <b>este dispositivo</b>. No es seguridad de nivel bancario y no sincroniza entre equipos.</div>
   </div>
 </div>
 
@@ -506,34 +581,57 @@ Respuesta: A"></textarea>
   </div>
 </div>
 
+<!-- MODAL: Mi camino en la carrera (malla curricular) -->
+<div class="modal-overlay" id="modal-camino">
+  <div class="modal modal-wrap">
+    <button class="closex" onclick="closeCamino()">✕</button>
+    <h3>🗺️ Mi camino — Medicina Humana UPAO</h3>
+    <p class="hint">Tu recorrido por los 14 ciclos de la carrera (362 créditos en total). Toca un ciclo para ver sus cursos.</p>
+    <div id="camino-body"></div>
+    <div class="modal-actions">
+      <button class="cancel" onclick="configMalla()">✎ Cambiar mi ciclo actual</button>
+      <button class="confirm" onclick="closeCamino()">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Agregar curso (elegido de la malla, no texto libre) -->
+<div class="modal-overlay" id="modal-addcourse">
+  <div class="modal modal-wrap">
+    <button class="closex" onclick="closeAddCourse()">✕</button>
+    <h3>➕ Agregar curso</h3>
+    <p class="hint" id="addcourse-hint"></p>
+    <label>Curso de la malla</label>
+    <select id="addcourse-select"></select>
+    <div class="modal-actions">
+      <button class="cancel" onclick="closeAddCourse()">Cancelar</button>
+      <button class="confirm" id="addcourse-confirm" onclick="confirmAddCourse()">Agregar</button>
+    </div>
+  </div>
+</div>
+
 <!-- Input oculto para importar JSON -->
 <input type="file" id="import-file-input" accept="application/json" style="display:none" onchange="handleImportFile(this)">
 
 <script>
 // ============ ESTADO Y PERSISTENCIA ============
+// Los datos se cargan por usuario (ver sección de candado más abajo: loadFor/save
+// usan un almacenamiento distinto para cada cuenta) recién tras iniciar sesión.
 const STORAGE_KEY = 'clinicas6_data_v1';
-let DATA = load();
-
-function load(){
-  try{
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if(raw) return JSON.parse(raw);
-  }catch(e){}
-  return seedDefault();
-}
-function save(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(DATA)); }
+let DATA = null;
 
 function seedDefault(){
-  return { courses: [
-    mkCourse('Semiología Médica','Clínico — Ancla del ciclo'),
-    mkCourse('Médico Paciente I','Humanístico + Clínico'),
-    mkCourse('Diagnóstico por Imágenes y Laboratorio Clínico','Técnica Diagnóstica'),
-    mkCourse('Informática Médica y Bioestadística','Herramienta Transversal'),
-    mkCourse('Fisiopatología','Integrador Teórico'),
+  return { ciclo:{inicio:'', totalSemanas:18, numeroCiclo:6}, courses: [
+    mkCourse('Semiología Médica','Clínico — Ancla del ciclo',6),
+    mkCourse('Médico Paciente I','Humanístico + Clínico',6),
+    mkCourse('Diagnóstico por Imágenes y Laboratorio Clínico','Técnica Diagnóstica',6),
+    mkCourse('Informática Médica y Bioestadística','Herramienta Transversal',6),
+    mkCourse('Fisiopatología','Integrador Teórico',6),
   ]};
 }
-function mkCourse(nombre,tipo){
-  return {id:'c'+Math.random().toString(36).slice(2,9), nombre, tipo, silaboFileName:'', silaboText:'', semanas:[]};
+function mkCourse(nombre,tipo,ciclo){
+  return {id:'c'+Math.random().toString(36).slice(2,9), nombre, tipo, ciclo:ciclo||null,
+    silaboFileName:'', silaboText:'', semanas:[], evaluacion:[]};
 }
 function mkWeek(numero,titulo,temas,examen,examenTipo){
   return {id:'w'+Math.random().toString(36).slice(2,9), numero, titulo:titulo||'', temas:temas||[],
@@ -541,6 +639,12 @@ function mkWeek(numero,titulo,temas,examen,examenTipo){
 }
 function mkQ(q,opts,ans,exp){
   return {id:'q'+Math.random().toString(36).slice(2,9), q, opts, ans, exp:exp||'', srs:srsInit()};
+}
+function mkEvalComp(nombre,peso){
+  return {id:'ev'+Math.random().toString(36).slice(2,9), nombre, peso, notas:[]};
+}
+function mkNota(etiqueta,valor){
+  return {id:'n'+Math.random().toString(36).slice(2,9), etiqueta:etiqueta||'', valor};
 }
 
 // ============ NAVEGACIÓN ============
@@ -557,11 +661,231 @@ function openCourse(id){
   renderCourse(id);
 }
 
+// ============ PROGRESO DEL CICLO (semana actual) ============
+function getCicloInfo(){
+  const cfg = DATA.ciclo || {inicio:'', totalSemanas:18};
+  const total = cfg.totalSemanas || 18;
+  if(!cfg.inicio) return {hasStart:false, total};
+  const start = new Date(cfg.inicio+'T00:00:00');
+  const days = Math.floor((new Date() - start)/86400000);
+  const current = Math.max(1, Math.min(total, Math.floor(days/7)+1));
+  const pct = Math.round(100*current/total);
+  return {hasStart:true, current, total, pct};
+}
+function configCiclo(){
+  const cfg = DATA.ciclo || {inicio:'', totalSemanas:18};
+  const inicioStr = prompt('Fecha de inicio del ciclo (AAAA-MM-DD):', cfg.inicio || todayKey());
+  if(inicioStr===null) return;
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(inicioStr.trim())){ alert('Formato de fecha inválido. Usa AAAA-MM-DD.'); return; }
+  const totalStr = prompt('¿Cuántas semanas dura el ciclo en total?', String(cfg.totalSemanas||18));
+  if(totalStr===null) return;
+  const total = parseInt(totalStr)||18;
+  DATA.ciclo = Object.assign({}, DATA.ciclo, {inicio: inicioStr.trim(), totalSemanas: total});
+  save(); renderHome();
+}
+function renderCicloProgress(){
+  const ci = getCicloInfo();
+  if(!ci.hasStart){
+    return `<div class="ciclo-progress" onclick="configCiclo()">
+      <div class="cp-top"><span>📅 Configura el inicio del ciclo</span><span class="cp-edit">✎ Configurar</span></div>
+      <div class="cp-sub">Toca aquí para ver en qué semana del curso vas</div>
+    </div>`;
+  }
+  return `<div class="ciclo-progress" onclick="configCiclo()">
+    <div class="cp-top"><span>📅 Semana ${ci.current} de ${ci.total}</span><span class="cp-edit">✎ Editar</span></div>
+    <div class="cp-bar"><i style="width:${ci.pct}%"></i></div>
+    <div class="cp-sub">${ci.current>=ci.total?'¡Última semana del ciclo!':'Vas en el '+ci.pct+'% del ciclo'}</div>
+  </div>`;
+}
+
+// ============ MALLA CURRICULAR (Medicina Humana UPAO) — "Mi Camino" ============
+// Datos de referencia de toda la carrera (14 ciclos / 7 años, 362 créditos), tomados
+// de la malla curricular oficial. XIII y XIV van juntos porque el internado se
+// matricula anualmente y ocupa ambos ciclos a la vez.
+const MALLA_CURRICULAR = [
+  {roman:'I', anio:1, creditos:24, cursos:[
+    {codigo:'CIEN-736', nombre:'Matemática', tipo:'General', creditos:4},
+    {codigo:'CIEN-664', nombre:'Química General', tipo:'General', creditos:4},
+    {codigo:'CIEN-638', nombre:'Biofísica Médica', tipo:'General', creditos:3},
+    {codigo:'CIEN-737', nombre:'Biología Celular', tipo:'General', creditos:4},
+    {codigo:'HUMA-1047', nombre:'Metodología del Aprendizaje Universitario', tipo:'General', creditos:2},
+    {codigo:'MEHU-817', nombre:'Introducción a la Profesión', tipo:'Específico', creditos:3},
+    {codigo:'HUMA-1168', nombre:'Comunicación I', tipo:'General', creditos:4},
+  ]},
+  {roman:'II', anio:1, creditos:23, cursos:[
+    {codigo:'HUMA-1169', nombre:'Comunicación II', tipo:'General', creditos:2},
+    {codigo:'CIEN-738', nombre:'Biología Molecular', tipo:'General', creditos:4},
+    {codigo:'MEHU-818', nombre:'Sistema Excretor', tipo:'Específico', creditos:5},
+    {codigo:'MEHU-819', nombre:'Bioquímica Médica', tipo:'Específico', creditos:5},
+    {codigo:'MEHU-602', nombre:'Casos Integradores I', tipo:'Específico', creditos:2},
+    {codigo:'MEHU-820', nombre:'Aparato Locomotor', tipo:'Específico', creditos:5},
+  ]},
+  {roman:'III', anio:2, creditos:24, cursos:[
+    {codigo:'MEHU-821', nombre:'Casos Integradores II', tipo:'Específico', creditos:2},
+    {codigo:'HUMA-1170', nombre:'Filosofía y Pensamiento Crítico', tipo:'General', creditos:3},
+    {codigo:'MEHU-822', nombre:'Sistema Reproductor', tipo:'Específico', creditos:4},
+    {codigo:'MEHU-823', nombre:'Sistema Endocrino', tipo:'Específico', creditos:4},
+    {codigo:'MEHU-824', nombre:'Sistema Nervioso', tipo:'Específico', creditos:6},
+    {codigo:'MEHU-825', nombre:'Medicina Social y Medio Ambiente', tipo:'Específico', creditos:3},
+    {codigo:'CIEN-739', nombre:'Recursos Digitales', tipo:'General', creditos:2},
+  ]},
+  {roman:'IV', anio:2, creditos:25, cursos:[
+    {codigo:'MEHU-826', nombre:'Sangre y Sistema Inmune', tipo:'Específico', creditos:5},
+    {codigo:'MEHU-827', nombre:'Casos Integradores III', tipo:'Específico', creditos:2},
+    {codigo:'MEHU-828', nombre:'Sistema Respiratorio', tipo:'Específico', creditos:5},
+    {codigo:'MEHU-829', nombre:'Sistema Digestivo', tipo:'Específico', creditos:5},
+    {codigo:'MEHU-830', nombre:'Sistema Cardiovascular', tipo:'Específico', creditos:5},
+    {codigo:'MEHU-831', nombre:'Genética Médica', tipo:'Específico', creditos:3},
+  ]},
+  {roman:'V', anio:3, creditos:23, cursos:[
+    {codigo:'MEHU-655', nombre:'Patología General y Especial', tipo:'Específico', creditos:8},
+    {codigo:'MEHU-832', nombre:'Microbiología y Parasitología', tipo:'Específico', creditos:5},
+    {codigo:'MEHU-833', nombre:'Epidemiología y Medicina Preventiva', tipo:'Específico', creditos:3},
+    {codigo:'MEHU-834', nombre:'Farmacología', tipo:'Específico', creditos:5},
+    {codigo:'MEHU-835', nombre:'Casos Integradores IV', tipo:'Específico', creditos:2},
+  ]},
+  {roman:'VI', anio:3, creditos:25, cursos:[
+    {codigo:'MEHU-836', nombre:'Semiología Médica', tipo:'Específico', creditos:12},
+    {codigo:'MEHU-837', nombre:'Médico Paciente I', tipo:'Especialidad', creditos:2},
+    {codigo:'MEHU-838', nombre:'Diagnóstico por Imágenes y Laboratorio Clínico', tipo:'Específico', creditos:5},
+    {codigo:'MEHU-839', nombre:'Informática Médica y Bioestadística', tipo:'Específico', creditos:3},
+    {codigo:'MEHU-840', nombre:'Fisiopatología', tipo:'Específico', creditos:3},
+  ]},
+  {roman:'VII', anio:4, creditos:23, cursos:[
+    {codigo:'MEHU-841', nombre:'Medicina I', tipo:'Especialidad', creditos:16},
+    {codigo:'MEHU-842', nombre:'Medicina Basada en Evidencias e IA', tipo:'Específico', creditos:2},
+    {codigo:'MEHU-843', nombre:'Médico Paciente II', tipo:'Especialidad', creditos:2},
+    {codigo:'MEHU-844', nombre:'Ética y Deontología Médica', tipo:'Específico', creditos:3},
+  ]},
+  {roman:'VIII', anio:4, creditos:23, cursos:[
+    {codigo:'MEHU-845', nombre:'Medicina II', tipo:'Especialidad', creditos:16},
+    {codigo:'HUMA-1171', nombre:'Metodología de la Investigación', tipo:'General', creditos:3},
+    {codigo:'MEHU-846', nombre:'Médico Paciente III', tipo:'Especialidad', creditos:2},
+    {codigo:'MEHU-847', nombre:'Psicología Médica', tipo:'Específico', creditos:2},
+  ]},
+  {roman:'IX', anio:5, creditos:25, cursos:[
+    {codigo:'MEHU-848', nombre:'Cirugía I', tipo:'Especialidad', creditos:16},
+    {codigo:'MEHU-849', nombre:'Proyecto de Investigación', tipo:'Especialidad', creditos:3},
+    {codigo:'MEHU-625', nombre:'Módulo Integrador Multidisciplinario', tipo:'Específico', creditos:2},
+    {codigo:'ELECTIVO I', nombre:'Electivo I — Ecografía Básica o Soporte Vital de Trauma Pre Hospitalario', tipo:'Específico', creditos:4},
+  ]},
+  {roman:'X', anio:5, creditos:25, cursos:[
+    {codigo:'MEHU-850', nombre:'Cirugía II', tipo:'Especialidad', creditos:14},
+    {codigo:'MEHU-851', nombre:'Psiquiatría', tipo:'Especialidad', creditos:6},
+    {codigo:'MEHU-852', nombre:'Tesis I', tipo:'Especialidad', creditos:3},
+    {codigo:'MEHU-853', nombre:'Redacción de Artículo Científico', tipo:'Especialidad', creditos:2},
+  ], nota:'Electivo II (Geriatría o Nutrición Médica, 3 créd.) se puede llevar este año o el siguiente.'},
+  {roman:'XI', anio:6, creditos:24, cursos:[
+    {codigo:'MEHU-522', nombre:'Ginecología y Obstetricia', tipo:'Especialidad', creditos:17},
+    {codigo:'ELECTIVO II', nombre:'Electivo II — Geriatría, Nutrición Médica o Cuidados Paliativos', tipo:'Especialidad', creditos:3},
+    {codigo:'MEHU-856', nombre:'Salud Global', tipo:'Específico', creditos:2},
+    {codigo:'MEHU-134', nombre:'Medicina Legal', tipo:'Específico', creditos:2},
+  ]},
+  {roman:'XII', anio:6, creditos:26, cursos:[
+    {codigo:'MEHU-857', nombre:'Pediatría', tipo:'Especialidad', creditos:15},
+    {codigo:'MEHU-858', nombre:'Tesis II', tipo:'Especialidad', creditos:3},
+    {codigo:'MEHU-859', nombre:'Gerencia y Economía en Salud', tipo:'Específico', creditos:2},
+    {codigo:'MEHU-667', nombre:'Taller de Casos Clínicos', tipo:'Específico', creditos:4},
+    {codigo:'HUMA-864', nombre:'Vigencia y Trascendencia del Pensamiento de Antenor Orrego', tipo:'General', creditos:2},
+  ]},
+  {roman:'XIII–XIV', anio:7, creditos:72, cursos:[
+    {codigo:'MEHU-860', nombre:'Internado de Medicina', tipo:'Especialidad', creditos:18},
+    {codigo:'MEHU-861', nombre:'Internado de Pediatría', tipo:'Especialidad', creditos:18},
+    {codigo:'MEHU-862', nombre:'Internado de Ginecobstetricia', tipo:'Especialidad', creditos:18},
+    {codigo:'MEHU-863', nombre:'Internado de Cirugía', tipo:'Especialidad', creditos:18},
+  ], nota:'Matrícula anual — dura los dos ciclos del 7° año completo.'},
+];
+const MALLA_TOTAL_CREDITOS = 362;
+
+function getCicloActualIndex(){
+  const cfg = DATA.ciclo || {};
+  const n = cfg.numeroCiclo || 6;
+  return Math.max(1, Math.min(MALLA_CURRICULAR.length, n));
+}
+// Crea (si no existen todavía) los cursos oficiales del ciclo indicado, para que
+// aparezcan listos en el home y puedas subirles su sílabo. No borra ni duplica
+// los cursos que ya tenías de otros ciclos — solo se muestran los del ciclo actual.
+function syncCoursesForCiclo(idx){
+  const malla = MALLA_CURRICULAR[idx-1];
+  if(!malla) return;
+  malla.cursos.forEach(cu=>{
+    const existe = DATA.courses.some(c=>c.ciclo===idx && c.nombre===cu.nombre);
+    if(!existe) DATA.courses.push(mkCourse(cu.nombre, cu.tipo, idx));
+  });
+}
+function updateHeaderTitle(){
+  const c = MALLA_CURRICULAR[getCicloActualIndex()-1];
+  const elT = document.getElementById('app-title');
+  if(elT) elT.textContent = '🩺 Ciclo '+c.roman+' — Año '+c.anio;
+  document.title = 'Ciclo '+c.roman+' · UPAO';
+}
+function configMalla(){
+  const cur = getCicloActualIndex();
+  const opciones = MALLA_CURRICULAR.map((c,i)=>(i+1)+' = Ciclo '+c.roman).join('   ·   ');
+  const ans = prompt('¿En qué ciclo de la carrera vas? Escribe el número (1-'+MALLA_CURRICULAR.length+'):\n\n'+opciones, String(cur));
+  if(ans===null) return;
+  const n = parseInt(ans);
+  if(!n || n<1 || n>MALLA_CURRICULAR.length){ alert('Número de ciclo inválido.'); return; }
+  DATA.ciclo = Object.assign({inicio:'', totalSemanas:18}, DATA.ciclo, {numeroCiclo:n});
+  syncCoursesForCiclo(n);
+  save();
+  renderHome();
+  const modal = document.getElementById('modal-camino');
+  if(modal && modal.classList.contains('show')) renderCaminoModal();
+}
+function renderCaminoBanner(){
+  const idx = getCicloActualIndex();
+  const total = MALLA_CURRICULAR.length;
+  const c = MALLA_CURRICULAR[idx-1];
+  return `<div class="camino-banner" onclick="openCamino()">
+    <div class="cb-top"><span>🗺️ Mi camino · Ciclo ${c.roman} de ${total}</span><span class="cp-edit">Ver mapa →</span></div>
+    <div class="cb-dots">${MALLA_CURRICULAR.map((x,i)=>`<span class="cb-dot ${i+1<idx?'done':i+1===idx?'current':''}"></span>`).join('')}</div>
+    <div class="cb-sub">${idx-1} de ${total} ciclos completados · Año ${c.anio} de 7</div>
+  </div>`;
+}
+let CAMINO_OPEN=null;
+function openCamino(){ CAMINO_OPEN=null; renderCaminoModal(); document.getElementById('modal-camino').classList.add('show'); }
+function closeCamino(){ document.getElementById('modal-camino').classList.remove('show'); }
+function toggleCaminoNode(i){ CAMINO_OPEN = (CAMINO_OPEN===i) ? null : i; renderCaminoModal(); }
+function renderCaminoModal(){
+  const idx = getCicloActualIndex();
+  const body = document.getElementById('camino-body');
+  body.innerHTML = `<div class="camino-wrap">` + MALLA_CURRICULAR.map((c,i)=>{
+    const n = i+1;
+    const status = n<idx ? 'done' : n===idx ? 'current' : 'locked';
+    const icon = status==='done' ? '✓' : status==='current' ? '📍' : '🔒';
+    const open = CAMINO_OPEN===i;
+    const badge = status==='done' ? '<span class="camino-badge done">Completado</span>'
+      : status==='current' ? '<span class="camino-badge here">Estás aquí</span>' : '';
+    return `<div class="camino-item">
+      <div class="camino-node ${status}" onclick="toggleCaminoNode(${i})">${icon}</div>
+      <div class="camino-content" onclick="toggleCaminoNode(${i})">
+        <div class="cl-name">Ciclo ${c.roman} ${badge}</div>
+        <div class="cl-sub">Año ${c.anio} · ${c.creditos} créditos · ${c.cursos.length} curso${c.cursos.length==1?'':'s'}</div>
+      </div>
+      ${open ? `<div class="camino-detail">
+        <ul class="cd-list">${c.cursos.map(cu=>`<li><b>${escapeHtml(cu.nombre)}</b> <span class="cd-tag">${cu.tipo}</span> · ${cu.creditos} cr.</li>`).join('')}</ul>
+        ${c.nota ? `<div class="cd-nota">💡 ${escapeHtml(c.nota)}</div>` : ''}
+        ${status==='current' ? `<div class="cd-nota" style="color:var(--em);font-weight:700">📍 Estás cursando este ciclo ahora mismo.</div>` : ''}
+        ${status==='done' ? `<div class="cd-nota" style="color:var(--em);font-weight:700">✅ ¡Reto completado! Ya dejaste este ciclo atrás.</div>` : ''}
+        ${status==='locked' ? `<div class="cd-nota">🔒 Todavía no llegas aquí. ¡Sigue avanzando!</div>` : ''}
+      </div>` : ''}
+    </div>`;
+  }).join('') + `</div>
+  <div class="camino-summary">🏆 ${idx-1} de ${MALLA_CURRICULAR.length} ciclos completados · ${MALLA_TOTAL_CREDITOS} créditos en toda la carrera · 🏁 meta: Internado (Año 7)</div>`;
+}
+
 // ============ HOME ============
 function renderHome(){
+  updateHeaderTitle();
+  const cicloIdx = getCicloActualIndex();
+  const cicloRoman = MALLA_CURRICULAR[cicloIdx-1].roman;
+  const cursosCiclo = DATA.courses.filter(c=>c.ciclo===cicloIdx);
   const el=document.getElementById('scr-home');
   const dueCount = getDueCards().length;
   el.innerHTML = `
+    ${renderCicloProgress()}
+    ${renderCaminoBanner()}
     <div class="actionbar">
       <div class="act primary" onclick="startReview()"><div class="ic">🔁</div><div class="lb">Repasar hoy</div><div class="cnt">${dueCount}</div></div>
       <div class="act" onclick="openExamSetup()"><div class="ic">🧪</div><div class="lb">Simulacro</div></div>
@@ -572,11 +896,13 @@ function renderHome(){
       <button onclick="openExportModal()">⬇ Exportar</button>
       <button onclick="openImportModal()">⬆ Importar</button>
     </div>
+    <div class="courses-label">Cursos del Ciclo ${cicloRoman}</div>
     <div class="courses">
-      ${DATA.courses.map(c=>{
+      ${cursosCiclo.map(c=>{
         const nsem = c.semanas.length;
         const hassil = c.silaboFileName ? 'ok' : '';
         return `<div class="course-card" onclick="openCourse('${c.id}')">
+          <button class="course-del" onclick="event.stopPropagation(); deleteCourse('${c.id}')" title="Eliminar curso">✕</button>
           <div class="cname">${c.nombre}</div>
           <div class="ctype">${c.tipo||''}</div>
           <div class="cmeta">
@@ -585,21 +911,61 @@ function renderHome(){
           </div>
         </div>`;
       }).join('')}
-      <div class="addcourse" onclick="addCourse()">+ Agregar curso</div>
+      <div class="addcourse" onclick="openAddCourse()">+ Agregar curso</div>
     </div>
     <div style="height:10px"></div>
   `;
 }
-function addCourse(){
-  const nombre = prompt('Nombre del curso:');
-  if(!nombre) return;
-  DATA.courses.push(mkCourse(nombre,''));
+function deleteCourse(courseId){
+  const c = DATA.courses.find(x=>x.id===courseId);
+  if(!c) return;
+  const tieneContenido = c.silaboFileName || c.semanas.length || (c.evaluacion&&c.evaluacion.length);
+  const msg = tieneContenido
+    ? '¿Eliminar "'+c.nombre+'"? Se borrará su sílabo, semanas, notas y banco de preguntas. Podrás volver a agregarlo desde la malla cuando quieras.'
+    : '¿Eliminar "'+c.nombre+'" de tu lista de cursos?';
+  if(!confirm(msg)) return;
+  DATA.courses = DATA.courses.filter(x=>x.id!==courseId);
   save(); renderHome();
+}
+function openAddCourse(){
+  const idx = getCicloActualIndex();
+  const malla = MALLA_CURRICULAR[idx-1];
+  const yaAgregados = new Set(DATA.courses.filter(c=>c.ciclo===idx).map(c=>c.nombre));
+  const disponibles = malla.cursos.filter(cu=>!yaAgregados.has(cu.nombre));
+  const sel = document.getElementById('addcourse-select');
+  const hint = document.getElementById('addcourse-hint');
+  const btn = document.getElementById('addcourse-confirm');
+  if(!disponibles.length){
+    sel.innerHTML = '';
+    sel.style.display = 'none';
+    btn.disabled = true;
+    hint.textContent = 'Ya agregaste todos los cursos del Ciclo '+malla.roman+' según la malla oficial.';
+  }else{
+    sel.style.display = 'block';
+    btn.disabled = false;
+    sel.innerHTML = disponibles.map(cu=>`<option value="${escapeHtml(cu.nombre)}">${escapeHtml(cu.nombre)} — ${escapeHtml(cu.tipo)} (${cu.creditos} cr.)</option>`).join('');
+    hint.textContent = 'Cursos oficiales del Ciclo '+malla.roman+' que todavía no tienes en tu lista:';
+  }
+  document.getElementById('modal-addcourse').classList.add('show');
+}
+function closeAddCourse(){ document.getElementById('modal-addcourse').classList.remove('show'); }
+function confirmAddCourse(){
+  const sel = document.getElementById('addcourse-select');
+  if(sel.style.display==='none' || !sel.value){ closeAddCourse(); return; }
+  const idx = getCicloActualIndex();
+  const malla = MALLA_CURRICULAR[idx-1];
+  const cu = malla.cursos.find(x=>x.nombre===sel.value);
+  if(!cu) return;
+  DATA.courses.push(mkCourse(cu.nombre, cu.tipo, idx));
+  save();
+  closeAddCourse();
+  renderHome();
 }
 
 // ============ VISTA DE CURSO ============
 function renderCourse(id){
   const c = DATA.courses.find(x=>x.id===id);
+  const cicloInfo = getCicloInfo();
   const el = document.getElementById('scr-course');
   el.innerHTML = `
     <button class="top backbtn" style="position:static;background:var(--em);color:#fff;border-radius:10px;
@@ -620,8 +986,9 @@ function renderCourse(id){
       <span class="togglelink" onclick="toggleRaw(this)">Ver texto extraído</span>
       <textarea class="rawtext" readonly>${escapeHtml(c.silaboText)}</textarea>
     </div>` : ''}
+    ${renderEvalBox(c)}
     <div id="weeks-list">
-      ${c.semanas.length ? c.semanas.sort((a,b)=>a.numero-b.numero).map(w=>renderWeekHTML(c.id,w)).join('') 
+      ${c.semanas.length ? c.semanas.sort((a,b)=>a.numero-b.numero).map(w=>renderWeekHTML(c.id,w,cicloInfo.hasStart&&w.numero===cicloInfo.current)).join('')
         : `<div class="empty-hint">Aún no hay semanas. Sube el sílabo en PDF o agrega una semana manual para armar el plan de estudio.</div>`}
     </div>
   `;
@@ -635,11 +1002,93 @@ function escapeHtml(s){
   return (s||'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 }
 
-function renderWeekHTML(courseId, w){
-  return `<div class="week" id="week-${w.id}">
+// ============ NOTAS Y EVALUACIÓN (componentes ponderados por curso) ============
+function promedioComp(comp){
+  if(!comp.notas.length) return null;
+  return comp.notas.reduce((s,n)=>s+n.valor,0)/comp.notas.length;
+}
+// Promedio ponderado con lo registrado hasta ahora: cada componente aporta su
+// promedio multiplicado por su peso, normalizado sobre el peso de los componentes
+// que ya tienen al menos una nota (así no castiga lo que aún no se ha rendido).
+function notaFinalCurso(c){
+  const comps = (c.evaluacion||[]).filter(cp=>cp.notas.length>0);
+  if(!comps.length) return null;
+  const pesoEvaluado = comps.reduce((a,cp)=>a+cp.peso,0);
+  if(pesoEvaluado<=0) return null;
+  const suma = comps.reduce((a,cp)=>a+promedioComp(cp)*cp.peso,0);
+  return {valor: suma/pesoEvaluado, pesoEvaluado};
+}
+function addEvalComponente(courseId){
+  const c = DATA.courses.find(x=>x.id===courseId);
+  const nombre = prompt('Nombre del componente de evaluación (el que trae tu sílabo: Exámenes, Prácticas, Casos clínicos, etc.):');
+  if(!nombre) return;
+  const pesoStr = prompt('¿Qué porcentaje vale "'+nombre.trim()+'" en la nota final del curso? (según tu sílabo, 1-100)', '20');
+  if(pesoStr===null) return;
+  const peso = parseFloat(pesoStr.replace(',','.'));
+  if(!(peso>0 && peso<=100)){ alert('El porcentaje debe ser un número entre 1 y 100.'); return; }
+  c.evaluacion = c.evaluacion||[];
+  c.evaluacion.push(mkEvalComp(nombre.trim(), peso));
+  save(); renderCourse(courseId);
+}
+function deleteEvalComponente(courseId, compId){
+  if(!confirm('¿Eliminar este componente y todas sus notas?')) return;
+  const c = DATA.courses.find(x=>x.id===courseId);
+  c.evaluacion = (c.evaluacion||[]).filter(cp=>cp.id!==compId);
+  save(); renderCourse(courseId);
+}
+function addNota(courseId, compId){
+  const c = DATA.courses.find(x=>x.id===courseId);
+  const comp = (c.evaluacion||[]).find(cp=>cp.id===compId);
+  const etiqueta = prompt('¿Qué nota es? (ej: Examen parcial, Práctica 2 — opcional)') || '';
+  const valorStr = prompt('Nota obtenida (escala 0-20):');
+  if(valorStr===null) return;
+  const valor = parseFloat(valorStr.replace(',','.'));
+  if(isNaN(valor) || valor<0 || valor>20){ alert('Ingresa una nota válida entre 0 y 20.'); return; }
+  comp.notas.push(mkNota(etiqueta.trim(), valor));
+  save(); renderCourse(courseId);
+}
+function deleteNota(courseId, compId, notaId){
+  const c = DATA.courses.find(x=>x.id===courseId);
+  const comp = (c.evaluacion||[]).find(cp=>cp.id===compId);
+  comp.notas = comp.notas.filter(n=>n.id!==notaId);
+  save(); renderCourse(courseId);
+}
+function renderEvalBox(c){
+  const comps = c.evaluacion||[];
+  const pesoTotal = comps.reduce((a,cp)=>a+cp.peso,0);
+  const final = notaFinalCurso(c);
+  return `<div class="silabo-box eval-box">
+    <div class="stitle">📊 Notas y evaluación</div>
+    ${comps.length ? comps.map(cp=>{
+      const prom = promedioComp(cp);
+      return `<div class="eval-comp">
+        <div class="eval-comp-head">
+          <div><b>${escapeHtml(cp.nombre)}</b><span class="eval-peso">${cp.peso}%</span></div>
+          <div class="eval-comp-actions">
+            <span class="togglelink" onclick="addNota('${c.id}','${cp.id}')">+ Nota</span>
+            <span class="togglelink" style="color:var(--bad)" onclick="deleteEvalComponente('${c.id}','${cp.id}')">Eliminar</span>
+          </div>
+        </div>
+        ${cp.notas.length ? `<div class="eval-notas">${cp.notas.map(n=>`<span class="eval-nota-chip">${escapeHtml(n.etiqueta||'Nota')}: <b>${n.valor}</b><i onclick="deleteNota('${c.id}','${cp.id}','${n.id}')">✕</i></span>`).join('')}</div>`
+          : `<div class="hint" style="margin-top:5px">Sin notas todavía.</div>`}
+        <div class="eval-comp-avg">${prom!=null ? 'Promedio del componente: <b>'+prom.toFixed(2)+'</b>/20' : 'Aún sin promedio'}</div>
+      </div>`;
+    }).join('') : `<div class="empty-hint" style="padding:14px 6px">Agrega los componentes de evaluación de este curso (los que trae tu sílabo: exámenes, prácticas, casos clínicos...) y su peso. Cada nota que subas se promedia sola dentro de su componente, y esos promedios se combinan según su peso para tu nota final.</div>`}
+    <button class="addqbtn" onclick="addEvalComponente('${c.id}')">+ Agregar componente de evaluación</button>
+    ${pesoTotal>0 && pesoTotal!==100 ? `<div class="hint" style="color:var(--amber);margin-top:8px">⚠ Los pesos suman ${pesoTotal}% (deberían sumar 100% según tu sílabo).</div>` : ''}
+    <div class="eval-final">
+      ${final ? `<div class="eval-final-num">${final.valor.toFixed(2)}<span>/20</span></div>
+        <div class="eval-final-sub">Promedio ponderado con lo registrado hasta ahora (${final.pesoEvaluado}% del curso ya evaluado)</div>`
+        : `<div class="eval-final-sub">Todavía no hay notas registradas.</div>`}
+    </div>
+  </div>`;
+}
+
+function renderWeekHTML(courseId, w, isCurrent){
+  return `<div class="week ${isCurrent?'current':''}" id="week-${w.id}">
     <div class="week-head" onclick="toggleWeek('${w.id}')">
       <div>
-        <div class="wn">Semana ${w.numero}${w.titulo?' — '+w.titulo:''} ${w.examen?`<span class="exbadge">${w.examenTipo||'Examen'}</span>`:''}</div>
+        <div class="wn">Semana ${w.numero}${w.titulo?' — '+w.titulo:''} ${isCurrent?'<span class="nowbadge">📍 Esta semana</span>':''} ${w.examen?`<span class="exbadge">${w.examenTipo||'Examen'}</span>`:''}</div>
         <div class="wt">${w.temas.length} tema${w.temas.length==1?'':'s'} · ${w.banco.length} pregunta${w.banco.length==1?'':'s'}</div>
       </div>
     </div>
@@ -1428,12 +1877,18 @@ async function aiExtractFromModal(){
   }
 }
 
-// ============ CANDADO LOCAL (login por dispositivo) ============
-// Nota honesta: NO es seguridad real. La clave se guarda hasheada (SHA-256 + sal)
+// ============ CANDADO LOCAL MULTIUSUARIO (cada usuario = su propia cuenta) ============
+// Nota honesta: NO es seguridad real. Las claves se guardan hasheadas (SHA-256 + sal)
 // solo en este navegador; alguien con las herramientas del navegador podría saltarlo.
-const AUTH_KEY='clinicas6_auth';
-function authGet(){ try{ return JSON.parse(localStorage.getItem(AUTH_KEY)||'null'); }catch(e){ return null; } }
-function authSet(o){ localStorage.setItem(AUTH_KEY, JSON.stringify(o)); }
+// Cada usuario tiene sus propios datos (cursos, semanas, etc.) totalmente separados.
+const USERS_KEY='clinicas6_users_v1';
+const CURRENT_USER_KEY='clinicas6_current_user_v1';
+const ADMIN_KEY='josecm'; // clave maestra para crear cuentas nuevas — solo la conoce José
+let CURRENT_USER=null;
+let LOCK_MODE='login';
+
+function usersGet(){ try{ return JSON.parse(localStorage.getItem(USERS_KEY)||'null'); }catch(e){ return null; } }
+function usersSet(list){ localStorage.setItem(USERS_KEY, JSON.stringify(list)); }
 function randHex(n){ const a=new Uint8Array(n); (crypto.getRandomValues?crypto.getRandomValues(a):a.forEach((_,i)=>a[i]=Math.floor(Math.random()*256))); return [...a].map(b=>b.toString(16).padStart(2,'0')).join(''); }
 async function hashPw(pw, salt){
   if(crypto.subtle){
@@ -1443,54 +1898,137 @@ async function hashPw(pw, salt){
   // fallback simple (contexto no seguro): mejor que texto plano, no criptográfico
   let h=0; const s=salt+':'+pw; for(let i=0;i<s.length;i++){ h=(h*31+s.charCodeAt(i))>>>0; } return 'x'+h.toString(16);
 }
-function showLock(mode){
-  const auth=authGet();
-  const isCreate = mode==='create' || !auth;
-  document.getElementById('lock-title').textContent = isCreate?'Crea tu perfil':'Bienvenido de vuelta';
-  document.getElementById('lock-sub').textContent = isCreate?'Un usuario y contraseña para entrar a la app':'Ingresa tu contraseña para continuar';
-  document.getElementById('lock-user').value = auth? auth.user : '';
-  document.getElementById('lock-user').readOnly = !isCreate && !!auth;
-  document.getElementById('lock-pass').value='';
-  document.getElementById('lock-pass2').value='';
-  document.getElementById('lock-pass2').style.display = isCreate?'block':'none';
+async function ensureDefaultUsers(){
+  let users = usersGet();
+  if(users && users.length) return users;
+  const mk = async (user,pw)=>{ const salt=randHex(8); return {user, salt, hash:await hashPw(pw,salt)}; };
+  users = [ await mk('josecm','josecm'), await mk('invitado','invitado123') ];
+  usersSet(users);
+  return users;
+}
+
+// ---- Datos por usuario: cada cuenta tiene su propio almacenamiento, aislado de las demás ----
+// Migración única: antes de tener multiusuario, todo se guardaba en STORAGE_KEY a secas.
+// Si esos datos "viejos" siguen ahí y la cuenta josecm todavía no tiene nada propio,
+// los recuperamos en vez de dejarlos huérfanos (esto es lo que borraba los sílabos).
+function migrateLegacyData(){
+  try{
+    const legacyRaw = localStorage.getItem(STORAGE_KEY);
+    if(!legacyRaw) return;
+    const targetKey = dataKeyFor('josecm');
+    if(!localStorage.getItem(targetKey)){
+      localStorage.setItem(targetKey, legacyRaw);
+    }
+  }catch(e){}
+}
+function dataKeyFor(user){ return STORAGE_KEY+'__'+user; }
+function loadFor(user){
+  try{
+    const raw = localStorage.getItem(dataKeyFor(user));
+    if(raw){
+      const d = JSON.parse(raw);
+      if(!d.ciclo) d.ciclo = {inicio:'', totalSemanas:18, numeroCiclo:6};
+      if(!d.ciclo.numeroCiclo) d.ciclo.numeroCiclo = 6;
+      (d.courses||[]).forEach(c=>{
+        if(!c.ciclo) c.ciclo = 6; // cursos guardados antes de tener malla/ciclos: eran los del 6to ciclo
+        if(!c.evaluacion) c.evaluacion = [];
+      });
+      return d;
+    }
+  }catch(e){}
+  return seedDefault();
+}
+function save(){ if(!CURRENT_USER) return; localStorage.setItem(dataKeyFor(CURRENT_USER), JSON.stringify(DATA)); }
+
+function populateUserSelect(users){
+  const sel=document.getElementById('lock-user-select');
+  sel.innerHTML = users.map(u=>`<option value="${escapeHtml(u.user)}">${escapeHtml(u.user)}</option>`).join('');
+  const last = localStorage.getItem(CURRENT_USER_KEY);
+  if(last && users.some(u=>u.user===last)) sel.value=last;
+}
+function toggleLockMode(){ LOCK_MODE = LOCK_MODE==='login' ? 'create' : 'login'; renderLockMode(); }
+function renderLockMode(){
+  const isCreate = LOCK_MODE==='create';
+  document.getElementById('lock-login-fields').style.display = isCreate?'none':'block';
+  document.getElementById('lock-create-fields').style.display = isCreate?'block':'none';
+  document.getElementById('lock-title').textContent = isCreate?'Crear nuevo usuario':'Clínicas 6to Ciclo';
+  document.getElementById('lock-sub').textContent = isCreate?'Requiere la clave maestra de José':'Elige tu usuario para entrar';
   document.getElementById('lock-go').textContent = isCreate?'Crear y entrar':'Entrar';
-  document.getElementById('lock-reset').style.display = isCreate?'none':'inline-block';
+  document.getElementById('lock-toggle').textContent = isCreate?'← Volver a iniciar sesión':'+ Crear nuevo usuario (clave maestra requerida)';
   document.getElementById('lock-err').textContent='';
+}
+async function showLock(){
+  const users = await ensureDefaultUsers();
+  populateUserSelect(users);
+  LOCK_MODE='login';
+  renderLockMode();
+  document.getElementById('lock-pass').value='';
+  document.getElementById('lock-admin').value='';
+  document.getElementById('lock-newuser').value='';
+  document.getElementById('lock-newpass').value='';
+  document.getElementById('lock-newpass2').value='';
   document.getElementById('lockscreen').classList.add('show');
-  document.getElementById('lock-'+(isCreate?'user':'pass')).focus();
+  document.getElementById('lock-pass').focus();
 }
 function hideLock(){ document.getElementById('lockscreen').classList.remove('show'); }
+async function loginAs(user, fresh){
+  CURRENT_USER = user;
+  localStorage.setItem(CURRENT_USER_KEY, user);
+  DATA = fresh ? seedDefault() : loadFor(user);
+  syncCoursesForCiclo(getCicloActualIndex());
+  save();
+  sessionStorage.setItem('clinicas6_unlocked_user', user);
+  hideLock();
+  renderHome();
+}
 async function lockSubmit(){
-  const auth=authGet();
-  const user=document.getElementById('lock-user').value.trim();
-  const pw=document.getElementById('lock-pass').value;
   const err=document.getElementById('lock-err');
-  const isCreate=!auth;
-  if(isCreate){
-    const pw2=document.getElementById('lock-pass2').value;
-    if(!user){ err.textContent='Escribe un usuario.'; return; }
+  if(LOCK_MODE==='create'){
+    const adminKey=document.getElementById('lock-admin').value;
+    const newUser=document.getElementById('lock-newuser').value.trim();
+    const pw=document.getElementById('lock-newpass').value;
+    const pw2=document.getElementById('lock-newpass2').value;
+    if(adminKey!==ADMIN_KEY){ err.textContent='Clave maestra incorrecta.'; return; }
+    if(!newUser){ err.textContent='Escribe un nombre de usuario.'; return; }
+    const users = usersGet()||[];
+    if(users.some(u=>u.user.toLowerCase()===newUser.toLowerCase())){ err.textContent='Ese usuario ya existe.'; return; }
     if(pw.length<4){ err.textContent='La contraseña debe tener al menos 4 caracteres.'; return; }
     if(pw!==pw2){ err.textContent='Las contraseñas no coinciden.'; return; }
     const salt=randHex(8); const hash=await hashPw(pw,salt);
-    authSet({user, salt, hash});
-    sessionStorage.setItem('clinicas6_unlocked','1');
-    hideLock(); renderHome();
+    users.push({user:newUser, salt, hash});
+    usersSet(users);
+    await loginAs(newUser, true);
   }else{
-    const hash=await hashPw(pw, auth.salt);
-    if(hash===auth.hash){ sessionStorage.setItem('clinicas6_unlocked','1'); hideLock(); renderHome(); }
-    else err.textContent='Contraseña incorrecta.';
+    const user = document.getElementById('lock-user-select').value;
+    const pw = document.getElementById('lock-pass').value;
+    const users = usersGet()||[];
+    const acc = users.find(u=>u.user===user);
+    if(!acc){ err.textContent='Usuario no encontrado.'; return; }
+    const hash = await hashPw(pw, acc.salt);
+    if(hash!==acc.hash){ err.textContent='Contraseña incorrecta.'; return; }
+    await loginAs(user, false);
   }
 }
-function lockApp(){ sessionStorage.removeItem('clinicas6_unlocked'); showLock('login'); }
-function resetProfile(){
-  if(confirm('Esto borra tu usuario y contraseña (tus cursos y datos NO se borran). Podrás crear un perfil nuevo. ¿Continuar?')){
-    localStorage.removeItem(AUTH_KEY); sessionStorage.removeItem('clinicas6_unlocked'); showLock('create');
-  }
+function lockApp(){
+  sessionStorage.removeItem('clinicas6_unlocked_user');
+  CURRENT_USER=null;
+  document.getElementById('scr-home').innerHTML='';
+  document.getElementById('scr-course').innerHTML='';
+  showLock();
 }
-function bootApp(){
-  renderHome();
-  if(sessionStorage.getItem('clinicas6_unlocked')==='1'){ hideLock(); return; }
-  showLock(authGet()?'login':'create');
+async function bootApp(){
+  migrateLegacyData();
+  const users = await ensureDefaultUsers();
+  const sessUser = sessionStorage.getItem('clinicas6_unlocked_user');
+  if(sessUser && users.some(u=>u.user===sessUser)){
+    CURRENT_USER=sessUser;
+    DATA=loadFor(sessUser);
+    syncCoursesForCiclo(getCicloActualIndex());
+    save();
+    renderHome();
+    return;
+  }
+  showLock();
 }
 
 // ============ IA: completar (reutilizable) ============
