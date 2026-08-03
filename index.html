@@ -1551,6 +1551,10 @@ function editWeek(courseId, wid){
   if(numStr===null) return;
   const numero = parseInt(numStr);
   if(!numero || numero<1){ alert('Número de semana inválido.'); return; }
+  if(c.semanas.some(x=>x.id!==wid && x.numero===numero)){
+    alert('Ya existe otra semana con el número '+numero+' en este curso. Elige un número distinto.');
+    return;
+  }
   const titulo = prompt('Título de la semana (opcional):', w.titulo||'');
   if(titulo===null) return;
   const temasStr = prompt('Temas (separados por coma):', (w.temas||[]).join(', '));
