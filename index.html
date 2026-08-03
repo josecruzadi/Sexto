@@ -1065,24 +1065,31 @@ function parseEvaluacionFromText(text){
   const t = text.replace(/\s+/g,' ').trim();
   // Ubica la sección de evaluación y arranca DESPUÉS del título (para que el título
   // no se "trague" el nombre del primer componente cuando están pegados).
-  const headRe = /sistema de evaluaci[oó]n|criterios de evaluaci[oó]n|evaluaci[oó]n del (?:curso|aprendizaje)|ponderaci[oó]n de (?:notas|calificaciones)/i;
+  const headRe = /sistema de evaluaci[oó]n|componentes? de evaluaci[oó]n|criterios de evaluaci[oó]n|evaluaci[oó]n del (?:curso|aprendizaje)|distribuci[oó]n de (?:la )?nota|ponderaci[oó]n de (?:notas|calificaciones)|r[uú]brica de evaluaci[oó]n/i;
   const headMatch = t.match(headRe);
   const zonaStart = headMatch ? headMatch.index + headMatch[0].length : 0;
-  const zona = t.slice(zonaStart, zonaStart+2500);
-  const keywords = /(ex[aá]men|pr[aá]ctica|trabajo|informe|participaci[oó]n|caso|proyecto|tesis|asistencia|exposici[oó]n|control|intervenci[oó]n|laboratorio|semin[ao]rio|taller|foro)/i;
+  const zona = t.slice(zonaStart, zonaStart+3000);
+  // Palabras típicas de un componente de evaluación. "comp\d*"/"componente" cubre el
+  // formato real de UPAO (ej. "COMP1 - Introducción", "COMP2 - Dermatología..."),
+  // donde el nombre es el tema/sistema clínico y no una palabra de evaluación genérica.
+  const keywords = /(comp(?:onente)?\s*\d*|ex[aá]men|pr[aá]ctica|trabajo|informe|participaci[oó]n|caso|proyecto|tesis|asistencia|exposici[oó]n|control|intervenci[oó]n|laboratorio|semin[ao]rio|taller|foro)/i;
   // Escanea cada "NN%" y toma como nombre el texto inmediatamente anterior (hasta
-  // donde terminó el ítem previo o 60 caracteres atrás, lo que esté más cerca).
+  // donde terminó el ítem previo o ~100 caracteres atrás, lo que esté más cerca).
+  // Si SÍ se ubicó un título de evaluación explícito, se confía en todo lo que haya
+  // dentro de esa zona (sin exigir palabras clave), porque los nombres reales suelen
+  // ser temas clínicos ("Dermatología, Cabeza y Cuello...") y no coinciden con ninguna
+  // lista fija de palabras.
   const pctRe = /(\d{1,3}(?:[.,]\d+)?)\s?%/g;
   const found = []; let m; let lastEnd = 0;
   while((m = pctRe.exec(zona))){
     const peso = parseFloat(m[1].replace(',','.'));
     if(!(peso>0 && peso<=100)){ lastEnd = m.index + m[0].length; continue; }
-    const windowStart = Math.max(lastEnd, m.index-60);
+    const windowStart = Math.max(lastEnd, m.index-100);
     let nombre = zona.slice(windowStart, m.index).replace(/[.\-\s]+$/,'').replace(/^[.,:\-\s•\d\)]+/,'').trim();
     lastEnd = m.index + m[0].length;
     if(!nombre || nombre.length<3) continue;
-    if(!keywords.test(nombre)) continue;
-    if(nombre.length>55) nombre = nombre.slice(-55).trim();
+    if(!headMatch && !keywords.test(nombre)) continue;
+    if(nombre.length>75) nombre = nombre.slice(-75).trim();
     found.push({nombre: capWords(nombre.toLowerCase()), peso});
   }
   const seen = new Set(); const out=[];
