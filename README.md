@@ -44,24 +44,24 @@ App web para acompañarte durante toda la carrera de Medicina Humana: sube el s�
 
 ## ⚠️ Importante: dónde se guardan tus datos
 
-Todo se guarda en el **almacenamiento local de tu navegador** (localStorage), por cuenta. Esto significa:
+Todo se guarda primero en el **almacenamiento local de tu navegador** (localStorage), por cuenta — la app funciona igual con o sin internet. Además, cada cuenta sincroniza en la nube (Firebase) ligada a tu usuario/contraseña:
 
-- ✅ Funciona **sin internet** una vez cargada la página.
-- ✅ Tus datos **no se envían a ningún servidor** — privacidad total.
-- ⚠️ **No se sincroniza entre dispositivos ni navegadores.** Si usas el celular y la compu (o el link normal y el ícono de "agregar a pantalla de inicio"), son almacenamientos separados.
-- ⚠️ Si **borras el caché del navegador**, pierdes los datos.
+- ✅ Funciona **sin internet**: sigue guardando todo en local aunque no haya conexión, y sincroniza solo cuando la vuelve a haber.
+- ✅ **Se sincroniza entre dispositivos y navegadores.** Entrando con el mismo usuario/contraseña desde el celular, la compu, u otro navegador, ves los mismos datos.
+- ⚠️ Tus datos quedan guardados en tu cuenta de la app (Firebase), no se comparten con nadie más — solo tú puedes leer/escribir tu propia información (reglas de seguridad por usuario).
+- 🔌 Puedes revisar si la nube está conectada con el botón **"Nube"** en el Home (te dice si hay sesión activa y si hubo algún error de sincronización).
 
-**Por eso: usa el botón "⬇ Exportar" seguido para respaldar tus datos** (descarga un `.json`), y "⬆ Importar" para restaurarlos o pasarlos a otro dispositivo/navegador.
+**Aun así, usa el botón "⬇ Exportar" de vez en cuando para tener un respaldo local** (descarga un `.json`), por si acaso — y "⬆ Importar" para restaurarlo si lo necesitas.
 
 ## 🚀 Próximos pasos (cuando quieras escalar)
 
-Esta sigue siendo una app sin backend (localStorage + login local). Si más adelante quieres:
-- Sincronizar entre dispositivos
+Ya tiene backend real (Firebase: Auth + Firestore) para sincronizar cuentas entre dispositivos. Si más adelante quieres:
 - Múltiples usuarios reales (compañeros de clase, con sus propios accesos)
 - Vender o licenciar la plataforma
 - Publicidad / monetización
+- Empaquetarla como app Android/iOS (Capacitor/Cordova, reusando el mismo código)
 
-...eso requiere una segunda fase con **backend real** (base de datos, autenticación, servidor). Avísame cuando quieras dar ese salto y lo planeamos.
+...eso son pasos adicionales sobre lo que ya existe. Avísame cuando quieras dar ese salto y lo planeamos.
 
 ---
 *Hecho para José · Facultad de Medicina Humana, UPAO*
