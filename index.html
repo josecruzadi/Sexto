@@ -1915,7 +1915,25 @@ function closeDraftModal(){ document.getElementById('modal-draft').classList.rem
 function confirmDraft(){
   const courseId = document.getElementById('draft-course').value;
   const c = DATA.courses.find(x=>x.id===courseId);
-  c.semanas = DRAFT.map(w=>mkWeek(w.numero, w.titulo, w.temas, w.examen, w.examenTipo||'Examen'));
+  const existentes = c.semanas || [];
+  // Si ya hay resúmenes/preguntas/diapositivas cargadas (típico al "Reemplazar sílabo"
+  // sobre un curso que ya se venía llenando), no las pisamos: para cada número de
+  // semana que coincida, se actualiza solo título/temas/examen y se conserva el resto.
+  const tieneContenidoPrevio = existentes.some(w=>(w.resumen&&w.resumen.trim()) || w.banco.length || w.slidesText);
+  if(tieneContenidoPrevio && !confirm('Ya tienes resúmenes, preguntas o diapositivas guardadas en semanas de este curso. Al guardar se conservará ese contenido para las semanas que coincidan en número; no se borra nada existente. ¿Continuar?')) return;
+  const porNumero = {};
+  existentes.forEach(w=>{ porNumero[w.numero]=w; });
+  c.semanas = DRAFT.map(w=>{
+    const prev = porNumero[w.numero];
+    if(prev){
+      prev.titulo = w.titulo;
+      prev.temas = w.temas;
+      prev.examen = w.examen;
+      prev.examenTipo = w.examenTipo||'Examen';
+      return prev;
+    }
+    return mkWeek(w.numero, w.titulo, w.temas, w.examen, w.examenTipo||'Examen');
+  });
   save();
   closeDraftModal();
   renderCourse(courseId);
