@@ -964,8 +964,8 @@ function renderHome(){
         const nota = notaFinalCurso(c);
         return `<div class="course-card" onclick="openCourse('${c.id}')">
           <button class="course-del" onclick="event.stopPropagation(); deleteCourse('${c.id}')" title="Eliminar curso">✕</button>
-          <div class="cname">${c.nombre}</div>
-          <div class="ctype">${c.tipo||''}</div>
+          <div class="cname">${escapeHtml(c.nombre)}</div>
+          <div class="ctype">${escapeHtml(c.tipo||'')}</div>
           <div class="cmeta">
             <span class="badge weeks">${nsem} semana${nsem==1?'':'s'}</span>
             <span class="badge silabo ${hassil}">${hassil?'📄 Sílabo cargado':'Sin sílabo'}</span>
@@ -1033,8 +1033,8 @@ function renderCourse(id){
     <button class="top backbtn" style="position:static;background:var(--em);color:#fff;border-radius:10px;
       padding:8px 14px;border:none;font-weight:700;cursor:pointer;margin-bottom:12px" onclick="nav('home')">← Cursos</button>
     <div class="course-head">
-      <h2>${c.nombre}</h2>
-      <p>${c.tipo||''}</p>
+      <h2>${escapeHtml(c.nombre)}</h2>
+      <p>${escapeHtml(c.tipo||'')}</p>
       <div class="actions">
         <button onclick="openSilaboModal('${c.id}')">📄 ${c.silaboFileName?'Reemplazar sílabo':'Subir sílabo'}</button>
         <button onclick="addWeekManual('${c.id}')">+ Semana manual</button>
@@ -1044,7 +1044,7 @@ function renderCourse(id){
     ${c.silaboFileName ? `
     <div class="silabo-box">
       <div class="stitle">Sílabo cargado</div>
-      <div class="fname">📎 ${c.silaboFileName}</div>
+      <div class="fname">📎 ${escapeHtml(c.silaboFileName)}</div>
       <span class="togglelink" onclick="toggleRaw(this)">Ver texto extraído</span>
       <textarea class="rawtext" readonly>${escapeHtml(c.silaboText)}</textarea>
     </div>` : ''}
@@ -1474,7 +1474,7 @@ function renderWeekHTML(courseId, w, isCurrent){
   return `<div class="week ${isCurrent?'current':''}" id="week-${w.id}">
     <div class="week-head" onclick="toggleWeek('${w.id}')">
       <div>
-        <div class="wn">Semana ${w.numero}${w.titulo?' — '+w.titulo:''} ${isCurrent?'<span class="nowbadge">📍 Esta semana</span>':''} ${w.examen?`<span class="exbadge">${w.examenTipo||'Examen'}</span>`:''}</div>
+        <div class="wn">Semana ${w.numero}${w.titulo?' — '+escapeHtml(w.titulo):''} ${isCurrent?'<span class="nowbadge">📍 Esta semana</span>':''} ${w.examen?`<span class="exbadge">${escapeHtml(w.examenTipo||'Examen')}</span>`:''}</div>
         <div class="wt">${w.temas.length} tema${w.temas.length==1?'':'s'} · ${w.banco.length} pregunta${w.banco.length==1?'':'s'}</div>
       </div>
     </div>
@@ -1897,7 +1897,7 @@ function renderDraftList(){
         <input type="text" placeholder="Título de la semana" value="${escapeHtml(w.titulo)}" style="flex:1" onchange="DRAFT[${idx}].titulo=this.value">
         <button class="rmweek" onclick="removeDraft(${idx})">✕</button>
       </div>
-      <textarea placeholder="Temas (uno por línea)" onchange="DRAFT[${idx}].temas=this.value.split('\\n').map(s=>s.trim()).filter(Boolean)">${w.temas.join('\n')}</textarea>
+      <textarea placeholder="Temas (uno por línea)" onchange="DRAFT[${idx}].temas=this.value.split('\\n').map(s=>s.trim()).filter(Boolean)">${escapeHtml(w.temas.join('\n'))}</textarea>
       <div class="examchk">
         <input type="checkbox" id="ex-${idx}" ${w.examen?'checked':''} onchange="DRAFT[${idx}].examen=this.checked">
         <label for="ex-${idx}">Marcar como semana de examen</label>
