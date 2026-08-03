@@ -319,8 +319,8 @@ input,select,textarea{background:var(--card);color:var(--ink)}
 /* ===== Diapositivas por semana ===== */
 .slides-bar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;background:var(--bg);border-radius:10px;padding:8px 10px;margin:10px 0}
 .slides-up{font-size:12px;font-weight:700;color:var(--em2);cursor:pointer;background:var(--card);border:1.5px dashed var(--em2);border-radius:8px;padding:6px 10px}
-.slides-bar .mini{font-size:11px;font-weight:700;border:none;border-radius:7px;padding:6px 9px;cursor:pointer;background:var(--okbg);color:var(--em)}
-.slides-bar .mini.danger{background:var(--badbg);color:var(--bad)}
+.mini{font-size:11px;font-weight:700;border:none;border-radius:7px;padding:6px 9px;cursor:pointer;background:var(--okbg);color:var(--em)}
+.mini.danger{background:var(--badbg);color:var(--bad)}
 .slides-bar .hint{width:100%;margin-top:2px}
 
 /* ===== Horario ===== */
@@ -688,7 +688,7 @@ function mkCourse(nombre,tipo,ciclo){
 }
 function mkWeek(numero,titulo,temas,examen,examenTipo){
   return {id:'w'+Math.random().toString(36).slice(2,9), numero, titulo:titulo||'', temas:temas||[],
-    examen:!!examen, examenTipo:examenTipo||'', resumen:'', banco:[]};
+    examen:!!examen, examenTipo:examenTipo||'', resumen:'', banco:[], guiaPre:'', guiaPost:''};
 }
 function mkQ(q,opts,ans,exp){
   return {id:'q'+Math.random().toString(36).slice(2,9), q, opts, ans, exp:exp||'', srs:srsInit()};
@@ -1537,6 +1537,7 @@ function renderWeekHTML(courseId, w, isCurrent){
       <div class="subtabs">
         <div class="subtab active" onclick="switchSub(this,'${w.id}','resumen')">📝 Resumen</div>
         <div class="subtab" onclick="switchSub(this,'${w.id}','banco')">📚 Banco (${w.banco.length})</div>
+        <div class="subtab" onclick="switchSub(this,'${w.id}','guia')">🗺️ Guía</div>
       </div>
       <div class="subpanel active" id="sub-resumen-${w.id}">
         <textarea class="resumen-ta" id="resumen-ta-${w.id}" placeholder="Escribe o pega aquí tu resumen de esta semana...">${escapeHtml(w.resumen)}</textarea>
@@ -1546,7 +1547,21 @@ function renderWeekHTML(courseId, w, isCurrent){
         <div id="qlist-${w.id}">${renderQList(courseId,w)}</div>
         <button class="addqbtn" onclick="openQModal('${courseId}','${w.id}')">+ Agregar pregunta</button>
         <button class="addqbtn" onclick="openBatch('${courseId}','${w.id}')" style="border-style:solid;border-color:var(--em2);color:var(--em2)">📥 Importar en lote</button>
+        <label class="addqbtn" for="bancofile-in-${w.id}" style="border-style:solid;border-color:var(--em2);color:var(--em2);cursor:pointer;display:inline-block">📎 Subir banco (PDF/Word) con IA</label>
+        <input type="file" id="bancofile-in-${w.id}" accept=".pdf,.docx,application/pdf" style="display:none" onchange="importBancoFile('${courseId}','${w.id}',this)">
+        <span class="hint" id="bancofile-status-${w.id}"></span>
         ${w.banco.length? `<button class="playbtn" onclick="playWeekQuiz('${courseId}','${w.id}')">▶ Practicar esta semana (${w.banco.length})</button>`:''}
+      </div>
+      <div class="subpanel" id="sub-guia-${w.id}">
+        <div style="font-size:12px;font-weight:800;color:var(--em2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">🔑 Claves que hay que saber sí o sí antes de la clase</div>
+        <textarea class="resumen-ta" id="guiapre-ta-${w.id}" placeholder="Puntos/prerrequisitos que deberías repasar antes de esta clase...">${escapeHtml(w.guiaPre)}</textarea>
+        <div style="font-size:12px;font-weight:800;color:var(--em2);text-transform:uppercase;letter-spacing:.06em;margin:12px 0 6px">🔁 Repaso post-clase</div>
+        <textarea class="resumen-ta" id="guiapost-ta-${w.id}" placeholder="Puntos clave para reforzar después de la clase...">${escapeHtml(w.guiaPost)}</textarea>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+          <button class="savebtn" onclick="saveGuia('${courseId}','${w.id}')">Guardar guía</button>
+          ${(w.slidesText||w.resumen)?`<button class="mini" onclick="genGuiaAI('${courseId}','${w.id}')">✨ Generar con IA</button>`:''}
+        </div>
+        <span class="hint" id="guia-status-${w.id}"></span>
       </div>
       <div style="margin-top:12px;text-align:right">
         <button class="rmweek" style="background:var(--okbg);color:var(--em);margin-right:6px" onclick="editWeek('${courseId}','${w.id}')">✎ Editar semana</button>
@@ -1581,6 +1596,14 @@ function saveResumen(courseId, wid){
   w.resumen = document.getElementById('resumen-ta-'+wid).value;
   save();
   alert('Resumen guardado ✓');
+}
+function saveGuia(courseId, wid){
+  const c = DATA.courses.find(x=>x.id===courseId);
+  const w = c.semanas.find(x=>x.id===wid);
+  w.guiaPre = document.getElementById('guiapre-ta-'+wid).value;
+  w.guiaPost = document.getElementById('guiapost-ta-'+wid).value;
+  save();
+  alert('Guía guardada ✓');
 }
 function deleteWeek(courseId, wid){
   if(!confirm('¿Eliminar esta semana y todo su contenido?')) return;
@@ -2563,7 +2586,11 @@ function normalizeData(d){
       if(!Array.isArray(cp.sub)) cp.sub = [];
       cp.sub.forEach(s=>{ if(!Array.isArray(s.notas)) s.notas = []; });
     });
-    c.semanas.forEach(w=>{ if(!Array.isArray(w.banco)) w.banco = []; });
+    c.semanas.forEach(w=>{
+      if(!Array.isArray(w.banco)) w.banco = [];
+      if(w.guiaPre==null) w.guiaPre = '';
+      if(w.guiaPost==null) w.guiaPost = '';
+    });
   });
   return d;
 }
@@ -2752,6 +2779,76 @@ async function genQuestionsAI(courseId, wid){
     });
     if(!added) throw new Error('La IA no devolvió preguntas válidas');
     save(); renderCourse(courseId);
+    setTimeout(()=>{ const wk=document.getElementById('week-'+wid); if(wk){ wk.classList.add('open'); const bt=wk.querySelector('.subtab:nth-child(2)'); if(bt) bt.click(); } },50);
+  }catch(e){ if(st) st.textContent = e.message==='NO_KEY'?'Falta la API key':'⚠ '+e.message; }
+}
+// ============ GUÍA DE ESTUDIO (claves antes de clase + repaso post-clase) ============
+async function genGuiaAI(courseId, wid){
+  const c=DATA.courses.find(x=>x.id===courseId); const w=c.semanas.find(x=>x.id===wid);
+  const fuente = w.slidesText || w.resumen || (w.temas||[]).join(', ');
+  if(!fuente || !fuente.trim()){ alert('Primero sube diapositivas o escribe un resumen de esta semana.'); return; }
+  if(!ensureKey()) return;
+  const st=document.getElementById('guia-status-'+wid); if(st) st.textContent='✨ Generando guía de estudio...';
+  try{
+    const prompt='A partir del siguiente contenido de una clase de medicina, genera una guía de estudio en español con DOS secciones. '
+      + 'Devuelve EXCLUSIVAMENTE JSON válido (sin markdown): {"preClase":"...","postClase":"..."}.\n'
+      + '- "preClase": viñetas ("- ") con los conceptos, definiciones o bases (anatomía/fisiología/farmacología previa, etc.) que el estudiante DEBE saber SÍ O SÍ antes de entrar a esta clase para entenderla bien.\n'
+      + '- "postClase": viñetas ("- ") con un repaso posterior a la clase: los puntos más importantes para reforzar y lo que más suele salir en examen sobre este tema.\n'
+      + 'No inventes información que no esté implícita en el contenido.\n\nCONTENIDO:\n"""\n'+fuente.slice(0,12000)+'\n"""';
+    let out=await aiComplete(prompt, 1800);
+    out=out.replace(/^```(?:json)?\s*/i,'').replace(/```\s*$/,'').trim();
+    const a=out.indexOf('{'), z=out.lastIndexOf('}'); if(a>=0&&z>a) out=out.slice(a,z+1);
+    const parsed=JSON.parse(out);
+    const preClase = String(parsed.preClase||'').trim();
+    const postClase = String(parsed.postClase||'').trim();
+    if(!preClase && !postClase) throw new Error('La IA no devolvió una guía válida');
+    w.guiaPre = preClase; w.guiaPost = postClase;
+    save(); renderCourse(courseId);
+    if(st) st.textContent='';
+    setTimeout(()=>{
+      const wk=document.getElementById('week-'+wid);
+      if(wk){ wk.classList.add('open'); const bt=[...wk.querySelectorAll('.subtab')].find(t=>t.textContent.includes('Guía')); if(bt) bt.click(); }
+    },50);
+  }catch(e){ if(st) st.textContent = e.message==='NO_KEY'?'Falta la API key':'⚠ '+e.message; }
+}
+// ============ IMPORTAR BANCO DE PREGUNTAS DESDE ARCHIVO (IA extrae, no inventa) ============
+async function importBancoFile(courseId, wid, input){
+  const file = input.files[0]; if(!file) return;
+  const c=DATA.courses.find(x=>x.id===courseId); const w=c.semanas.find(x=>x.id===wid);
+  const st=document.getElementById('bancofile-status-'+wid);
+  if(st) st.textContent = 'Extrayendo texto de '+file.name+'...';
+  try{
+    const buf = await file.arrayBuffer();
+    let text = '';
+    if(/\.docx$/i.test(file.name) || /wordprocessingml/i.test(file.type)){
+      if(typeof mammoth==='undefined') throw new Error('mammoth no cargó (revisa tu conexión)');
+      const res = await mammoth.extractRawText({arrayBuffer:buf});
+      text = res.value || '';
+    }else{
+      const pdf = await pdfjsLib.getDocument({data:buf}).promise;
+      for(let p=1;p<=pdf.numPages;p++){ const pg=await pdf.getPage(p); const cont=await pg.getTextContent(); text+=cont.items.map(i=>i.str).join(' ')+'\n'; }
+    }
+    if(!text.trim()) throw new Error('No se encontró texto en el archivo');
+    if(!ensureKey()){ if(st) st.textContent=''; return; }
+    if(st) st.textContent = '✨ Extrayendo preguntas con IA...';
+    const prompt = 'El siguiente texto es un banco de preguntas de opción múltiple YA ELABORADO (examen, guía de práctica, etc.), extraído de un PDF/Word. '
+      + 'Extrae TODAS las preguntas que encuentres, tal como están (no inventes preguntas nuevas ni cambies su contenido, solo corrige errores obvios de formato/OCR). '
+      + 'Devuelve EXCLUSIVAMENTE JSON válido (sin markdown): {"preguntas":[{"q":"...","opts":["a","b","c","d"],"ans":0,"exp":"..."}]}. '
+      + '"ans" es el índice 0-based de la opción marcada/correcta en el texto (si no está marcada, tu mejor estimación). "exp" es la explicación si el texto la trae, o "" si no. '
+      + 'Ignora cualquier pregunta que no tenga claramente el enunciado y al menos 2 opciones.\n\nTEXTO:\n"""\n'+text.slice(0,15000)+'\n"""';
+    let out = await aiComplete(prompt, 3000);
+    out = out.replace(/^```(?:json)?\s*/i,'').replace(/```\s*$/,'').trim();
+    const a=out.indexOf('{'), z=out.lastIndexOf('}'); if(a>=0&&z>a) out=out.slice(a,z+1);
+    const parsed = JSON.parse(out); const arr = parsed.preguntas||parsed.questions||[];
+    let added=0;
+    arr.forEach(q=>{
+      const opts=Array.isArray(q.opts)?q.opts.map(o=>String(o)):[];
+      const ans=parseInt(q.ans);
+      if(q.q && opts.length>=2 && ans>=0 && ans<opts.length){ w.banco.push(mkQ(String(q.q),opts,ans,String(q.exp||''))); added++; }
+    });
+    if(!added) throw new Error('No se detectaron preguntas válidas en el archivo');
+    save(); renderCourse(courseId);
+    if(st) st.textContent='';
     setTimeout(()=>{ const wk=document.getElementById('week-'+wid); if(wk){ wk.classList.add('open'); const bt=wk.querySelector('.subtab:nth-child(2)'); if(bt) bt.click(); } },50);
   }catch(e){ if(st) st.textContent = e.message==='NO_KEY'?'Falta la API key':'⚠ '+e.message; }
 }
