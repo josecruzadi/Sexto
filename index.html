@@ -37,7 +37,7 @@ body{font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
 .wrap{max-width:680px;margin:0 auto;min-height:100vh}
 
 .top{position:sticky;top:0;z-index:40;background:linear-gradient(135deg,var(--emd),var(--em));
-  color:#fff;padding:16px 18px;box-shadow:var(--shadow)}
+  color:#fff;padding:16px 100px 16px 18px;box-shadow:var(--shadow)}
 .top .brand{font-size:11px;font-weight:800;letter-spacing:.15em;text-transform:uppercase;opacity:.85}
 .top .ttl{font-size:21px;font-weight:800;letter-spacing:-.01em;margin-top:2px}
 .top .sub{font-size:12px;opacity:.8;margin-top:2px}
@@ -313,7 +313,8 @@ input,select,textarea{background:var(--card);color:var(--ink)}
 .lockcard .link{font-size:11.5px;color:var(--em);font-weight:700;cursor:pointer;margin-top:12px;display:inline-block}
 .lockcard .warn{font-size:11px;color:var(--amber);background:var(--amberbg);border-radius:9px;padding:8px 10px;margin-top:12px;line-height:1.4}
 .lockcard .err{font-size:12px;color:var(--bad);margin-top:8px;min-height:14px;font-weight:700}
-.lockbtn{background:rgba(255,255,255,.18);border:none;color:#fff;border-radius:10px;padding:6px 10px;font-size:12px;font-weight:700;cursor:pointer;float:right;margin-top:-2px}
+.lockbtn{position:absolute;top:16px;right:18px;background:rgba(255,255,255,.18);border:none;color:#fff;
+  border-radius:10px;padding:6px 10px;font-size:12px;font-weight:700;cursor:pointer;z-index:1}
 
 /* ===== Diapositivas por semana ===== */
 .slides-bar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;background:var(--bg);border-radius:10px;padding:8px 10px;margin:10px 0}
