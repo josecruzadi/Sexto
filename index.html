@@ -35,6 +35,7 @@ body{font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
 @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 
 /* Lista de cursos */
+.courses-label{font-size:11.5px;font-weight:800;color:var(--grey);text-transform:uppercase;letter-spacing:.05em;margin:2px 2px 8px}
 .courses{display:flex;flex-direction:column;gap:11px}
 .course-card{background:var(--card);border-radius:16px;padding:16px;box-shadow:var(--shadow);
   border:1px solid var(--line);border-left:4px solid var(--em);cursor:pointer}
@@ -68,6 +69,21 @@ body{font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
   border:1px solid var(--line);border-radius:8px;padding:8px;font-size:11.5px;font-family:monospace;color:var(--grey)}
 .silabo-box textarea.rawtext.show{max-height:200px;overflow:auto;margin-top:8px}
 .togglelink{font-size:11.5px;color:var(--em);font-weight:700;cursor:pointer;text-decoration:underline}
+
+/* ===== Notas y evaluación (componentes ponderados) ===== */
+.eval-comp{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:8px}
+.eval-comp-head{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px;flex-wrap:wrap}
+.eval-comp-head b{color:var(--emd)}
+.eval-peso{font-size:11px;font-weight:800;color:var(--em);background:var(--okbg);padding:2px 7px;border-radius:7px;margin-left:6px}
+.eval-comp-actions{display:flex;gap:12px;white-space:nowrap}
+.eval-notas{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.eval-nota-chip{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:4px 8px;font-size:11.5px}
+.eval-nota-chip i{font-style:normal;color:var(--bad);margin-left:6px;cursor:pointer;font-weight:800}
+.eval-comp-avg{font-size:11.5px;color:var(--grey);margin-top:7px;font-weight:700}
+.eval-final{text-align:center;margin-top:12px;padding-top:12px;border-top:1px dashed var(--line)}
+.eval-final-num{font-size:30px;font-weight:800;color:var(--emd)}
+.eval-final-num span{font-size:15px;font-weight:700;color:var(--grey)}
+.eval-final-sub{font-size:11.5px;color:var(--grey);margin-top:2px}
 
 /* Semanas */
 .week{background:var(--card);border-radius:14px;margin-bottom:10px;box-shadow:var(--shadow);
@@ -308,7 +324,7 @@ textarea.resumen-ta:focus{outline:none;border-color:var(--em)}
   <div class="top">
     <button class="lockbtn" onclick="lockApp()">🔒 Bloquear</button>
     <div class="brand">UPAO · Medicina Humana</div>
-    <div class="ttl">🩺 6to Ciclo — Clínicas</div>
+    <div class="ttl" id="app-title">🩺 Ciclo VI — Año 3</div>
     <div class="sub">Sílabos, plan semanal, resúmenes y bancos por curso</div>
   </div>
 
@@ -587,16 +603,17 @@ const STORAGE_KEY = 'clinicas6_data_v1';
 let DATA = null;
 
 function seedDefault(){
-  return { ciclo:{inicio:'', totalSemanas:18}, courses: [
-    mkCourse('Semiología Médica','Clínico — Ancla del ciclo'),
-    mkCourse('Médico Paciente I','Humanístico + Clínico'),
-    mkCourse('Diagnóstico por Imágenes y Laboratorio Clínico','Técnica Diagnóstica'),
-    mkCourse('Informática Médica y Bioestadística','Herramienta Transversal'),
-    mkCourse('Fisiopatología','Integrador Teórico'),
+  return { ciclo:{inicio:'', totalSemanas:18, numeroCiclo:6}, courses: [
+    mkCourse('Semiología Médica','Clínico — Ancla del ciclo',6),
+    mkCourse('Médico Paciente I','Humanístico + Clínico',6),
+    mkCourse('Diagnóstico por Imágenes y Laboratorio Clínico','Técnica Diagnóstica',6),
+    mkCourse('Informática Médica y Bioestadística','Herramienta Transversal',6),
+    mkCourse('Fisiopatología','Integrador Teórico',6),
   ]};
 }
-function mkCourse(nombre,tipo){
-  return {id:'c'+Math.random().toString(36).slice(2,9), nombre, tipo, silaboFileName:'', silaboText:'', semanas:[]};
+function mkCourse(nombre,tipo,ciclo){
+  return {id:'c'+Math.random().toString(36).slice(2,9), nombre, tipo, ciclo:ciclo||null,
+    silaboFileName:'', silaboText:'', semanas:[], evaluacion:[]};
 }
 function mkWeek(numero,titulo,temas,examen,examenTipo){
   return {id:'w'+Math.random().toString(36).slice(2,9), numero, titulo:titulo||'', temas:temas||[],
@@ -604,6 +621,12 @@ function mkWeek(numero,titulo,temas,examen,examenTipo){
 }
 function mkQ(q,opts,ans,exp){
   return {id:'q'+Math.random().toString(36).slice(2,9), q, opts, ans, exp:exp||'', srs:srsInit()};
+}
+function mkEvalComp(nombre,peso){
+  return {id:'ev'+Math.random().toString(36).slice(2,9), nombre, peso, notas:[]};
+}
+function mkNota(etiqueta,valor){
+  return {id:'n'+Math.random().toString(36).slice(2,9), etiqueta:etiqueta||'', valor};
 }
 
 // ============ NAVEGACIÓN ============
@@ -761,6 +784,23 @@ function getCicloActualIndex(){
   const n = cfg.numeroCiclo || 6;
   return Math.max(1, Math.min(MALLA_CURRICULAR.length, n));
 }
+// Crea (si no existen todavía) los cursos oficiales del ciclo indicado, para que
+// aparezcan listos en el home y puedas subirles su sílabo. No borra ni duplica
+// los cursos que ya tenías de otros ciclos — solo se muestran los del ciclo actual.
+function syncCoursesForCiclo(idx){
+  const malla = MALLA_CURRICULAR[idx-1];
+  if(!malla) return;
+  malla.cursos.forEach(cu=>{
+    const existe = DATA.courses.some(c=>c.ciclo===idx && c.nombre===cu.nombre);
+    if(!existe) DATA.courses.push(mkCourse(cu.nombre, cu.tipo, idx));
+  });
+}
+function updateHeaderTitle(){
+  const c = MALLA_CURRICULAR[getCicloActualIndex()-1];
+  const elT = document.getElementById('app-title');
+  if(elT) elT.textContent = '🩺 Ciclo '+c.roman+' — Año '+c.anio;
+  document.title = 'Ciclo '+c.roman+' · UPAO';
+}
 function configMalla(){
   const cur = getCicloActualIndex();
   const opciones = MALLA_CURRICULAR.map((c,i)=>(i+1)+' = Ciclo '+c.roman).join('   ·   ');
@@ -769,6 +809,7 @@ function configMalla(){
   const n = parseInt(ans);
   if(!n || n<1 || n>MALLA_CURRICULAR.length){ alert('Número de ciclo inválido.'); return; }
   DATA.ciclo = Object.assign({inicio:'', totalSemanas:18}, DATA.ciclo, {numeroCiclo:n});
+  syncCoursesForCiclo(n);
   save();
   renderHome();
   const modal = document.getElementById('modal-camino');
@@ -818,6 +859,10 @@ function renderCaminoModal(){
 
 // ============ HOME ============
 function renderHome(){
+  updateHeaderTitle();
+  const cicloIdx = getCicloActualIndex();
+  const cicloRoman = MALLA_CURRICULAR[cicloIdx-1].roman;
+  const cursosCiclo = DATA.courses.filter(c=>c.ciclo===cicloIdx);
   const el=document.getElementById('scr-home');
   const dueCount = getDueCards().length;
   el.innerHTML = `
@@ -833,8 +878,9 @@ function renderHome(){
       <button onclick="openExportModal()">⬇ Exportar</button>
       <button onclick="openImportModal()">⬆ Importar</button>
     </div>
+    <div class="courses-label">Cursos del Ciclo ${cicloRoman}</div>
     <div class="courses">
-      ${DATA.courses.map(c=>{
+      ${cursosCiclo.map(c=>{
         const nsem = c.semanas.length;
         const hassil = c.silaboFileName ? 'ok' : '';
         return `<div class="course-card" onclick="openCourse('${c.id}')">
@@ -854,7 +900,7 @@ function renderHome(){
 function addCourse(){
   const nombre = prompt('Nombre del curso:');
   if(!nombre) return;
-  DATA.courses.push(mkCourse(nombre,''));
+  DATA.courses.push(mkCourse(nombre,'',getCicloActualIndex()));
   save(); renderHome();
 }
 
@@ -882,6 +928,7 @@ function renderCourse(id){
       <span class="togglelink" onclick="toggleRaw(this)">Ver texto extraído</span>
       <textarea class="rawtext" readonly>${escapeHtml(c.silaboText)}</textarea>
     </div>` : ''}
+    ${renderEvalBox(c)}
     <div id="weeks-list">
       ${c.semanas.length ? c.semanas.sort((a,b)=>a.numero-b.numero).map(w=>renderWeekHTML(c.id,w,cicloInfo.hasStart&&w.numero===cicloInfo.current)).join('')
         : `<div class="empty-hint">Aún no hay semanas. Sube el sílabo en PDF o agrega una semana manual para armar el plan de estudio.</div>`}
@@ -895,6 +942,88 @@ function toggleRaw(el){
 }
 function escapeHtml(s){
   return (s||'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+
+// ============ NOTAS Y EVALUACIÓN (componentes ponderados por curso) ============
+function promedioComp(comp){
+  if(!comp.notas.length) return null;
+  return comp.notas.reduce((s,n)=>s+n.valor,0)/comp.notas.length;
+}
+// Promedio ponderado con lo registrado hasta ahora: cada componente aporta su
+// promedio multiplicado por su peso, normalizado sobre el peso de los componentes
+// que ya tienen al menos una nota (así no castiga lo que aún no se ha rendido).
+function notaFinalCurso(c){
+  const comps = (c.evaluacion||[]).filter(cp=>cp.notas.length>0);
+  if(!comps.length) return null;
+  const pesoEvaluado = comps.reduce((a,cp)=>a+cp.peso,0);
+  if(pesoEvaluado<=0) return null;
+  const suma = comps.reduce((a,cp)=>a+promedioComp(cp)*cp.peso,0);
+  return {valor: suma/pesoEvaluado, pesoEvaluado};
+}
+function addEvalComponente(courseId){
+  const c = DATA.courses.find(x=>x.id===courseId);
+  const nombre = prompt('Nombre del componente de evaluación (el que trae tu sílabo: Exámenes, Prácticas, Casos clínicos, etc.):');
+  if(!nombre) return;
+  const pesoStr = prompt('¿Qué porcentaje vale "'+nombre.trim()+'" en la nota final del curso? (según tu sílabo, 1-100)', '20');
+  if(pesoStr===null) return;
+  const peso = parseFloat(pesoStr.replace(',','.'));
+  if(!(peso>0 && peso<=100)){ alert('El porcentaje debe ser un número entre 1 y 100.'); return; }
+  c.evaluacion = c.evaluacion||[];
+  c.evaluacion.push(mkEvalComp(nombre.trim(), peso));
+  save(); renderCourse(courseId);
+}
+function deleteEvalComponente(courseId, compId){
+  if(!confirm('¿Eliminar este componente y todas sus notas?')) return;
+  const c = DATA.courses.find(x=>x.id===courseId);
+  c.evaluacion = (c.evaluacion||[]).filter(cp=>cp.id!==compId);
+  save(); renderCourse(courseId);
+}
+function addNota(courseId, compId){
+  const c = DATA.courses.find(x=>x.id===courseId);
+  const comp = (c.evaluacion||[]).find(cp=>cp.id===compId);
+  const etiqueta = prompt('¿Qué nota es? (ej: Examen parcial, Práctica 2 — opcional)') || '';
+  const valorStr = prompt('Nota obtenida (escala 0-20):');
+  if(valorStr===null) return;
+  const valor = parseFloat(valorStr.replace(',','.'));
+  if(isNaN(valor) || valor<0 || valor>20){ alert('Ingresa una nota válida entre 0 y 20.'); return; }
+  comp.notas.push(mkNota(etiqueta.trim(), valor));
+  save(); renderCourse(courseId);
+}
+function deleteNota(courseId, compId, notaId){
+  const c = DATA.courses.find(x=>x.id===courseId);
+  const comp = (c.evaluacion||[]).find(cp=>cp.id===compId);
+  comp.notas = comp.notas.filter(n=>n.id!==notaId);
+  save(); renderCourse(courseId);
+}
+function renderEvalBox(c){
+  const comps = c.evaluacion||[];
+  const pesoTotal = comps.reduce((a,cp)=>a+cp.peso,0);
+  const final = notaFinalCurso(c);
+  return `<div class="silabo-box eval-box">
+    <div class="stitle">📊 Notas y evaluación</div>
+    ${comps.length ? comps.map(cp=>{
+      const prom = promedioComp(cp);
+      return `<div class="eval-comp">
+        <div class="eval-comp-head">
+          <div><b>${escapeHtml(cp.nombre)}</b><span class="eval-peso">${cp.peso}%</span></div>
+          <div class="eval-comp-actions">
+            <span class="togglelink" onclick="addNota('${c.id}','${cp.id}')">+ Nota</span>
+            <span class="togglelink" style="color:var(--bad)" onclick="deleteEvalComponente('${c.id}','${cp.id}')">Eliminar</span>
+          </div>
+        </div>
+        ${cp.notas.length ? `<div class="eval-notas">${cp.notas.map(n=>`<span class="eval-nota-chip">${escapeHtml(n.etiqueta||'Nota')}: <b>${n.valor}</b><i onclick="deleteNota('${c.id}','${cp.id}','${n.id}')">✕</i></span>`).join('')}</div>`
+          : `<div class="hint" style="margin-top:5px">Sin notas todavía.</div>`}
+        <div class="eval-comp-avg">${prom!=null ? 'Promedio del componente: <b>'+prom.toFixed(2)+'</b>/20' : 'Aún sin promedio'}</div>
+      </div>`;
+    }).join('') : `<div class="empty-hint" style="padding:14px 6px">Agrega los componentes de evaluación de este curso (los que trae tu sílabo: exámenes, prácticas, casos clínicos...) y su peso. Cada nota que subas se promedia sola dentro de su componente, y esos promedios se combinan según su peso para tu nota final.</div>`}
+    <button class="addqbtn" onclick="addEvalComponente('${c.id}')">+ Agregar componente de evaluación</button>
+    ${pesoTotal>0 && pesoTotal!==100 ? `<div class="hint" style="color:var(--amber);margin-top:8px">⚠ Los pesos suman ${pesoTotal}% (deberían sumar 100% según tu sílabo).</div>` : ''}
+    <div class="eval-final">
+      ${final ? `<div class="eval-final-num">${final.valor.toFixed(2)}<span>/20</span></div>
+        <div class="eval-final-sub">Promedio ponderado con lo registrado hasta ahora (${final.pesoEvaluado}% del curso ya evaluado)</div>`
+        : `<div class="eval-final-sub">Todavía no hay notas registradas.</div>`}
+    </div>
+  </div>`;
 }
 
 function renderWeekHTML(courseId, w, isCurrent){
@@ -1738,7 +1867,16 @@ function dataKeyFor(user){ return STORAGE_KEY+'__'+user; }
 function loadFor(user){
   try{
     const raw = localStorage.getItem(dataKeyFor(user));
-    if(raw){ const d=JSON.parse(raw); if(!d.ciclo) d.ciclo={inicio:'',totalSemanas:18}; return d; }
+    if(raw){
+      const d = JSON.parse(raw);
+      if(!d.ciclo) d.ciclo = {inicio:'', totalSemanas:18, numeroCiclo:6};
+      if(!d.ciclo.numeroCiclo) d.ciclo.numeroCiclo = 6;
+      (d.courses||[]).forEach(c=>{
+        if(!c.ciclo) c.ciclo = 6; // cursos guardados antes de tener malla/ciclos: eran los del 6to ciclo
+        if(!c.evaluacion) c.evaluacion = [];
+      });
+      return d;
+    }
   }catch(e){}
   return seedDefault();
 }
@@ -1779,7 +1917,8 @@ async function loginAs(user, fresh){
   CURRENT_USER = user;
   localStorage.setItem(CURRENT_USER_KEY, user);
   DATA = fresh ? seedDefault() : loadFor(user);
-  if(fresh) save();
+  syncCoursesForCiclo(getCicloActualIndex());
+  save();
   sessionStorage.setItem('clinicas6_unlocked_user', user);
   hideLock();
   renderHome();
@@ -1826,6 +1965,8 @@ async function bootApp(){
   if(sessUser && users.some(u=>u.user===sessUser)){
     CURRENT_USER=sessUser;
     DATA=loadFor(sessUser);
+    syncCoursesForCiclo(getCicloActualIndex());
+    save();
     renderHome();
     return;
   }
