@@ -2810,36 +2810,49 @@ async function loginAs(user, fresh, uid){
   hideLock();
   renderHome();
 }
+let _lockBusy = false; // evita que varios toques seguidos en "Entrar" disparen logins/altas duplicadas en la nube
 async function lockSubmit(){
-  const err=document.getElementById('lock-err');
-  if(LOCK_MODE==='create'){
-    const adminKey=document.getElementById('lock-admin').value;
-    const newUser=document.getElementById('lock-newuser').value.trim();
-    const pw=document.getElementById('lock-newpass').value;
-    const pw2=document.getElementById('lock-newpass2').value;
-    if(adminKey!==ADMIN_KEY){ err.textContent='Clave maestra incorrecta.'; return; }
-    if(!newUser){ err.textContent='Escribe un nombre de usuario.'; return; }
-    const users = usersGet()||[];
-    if(users.some(u=>u.user.toLowerCase()===newUser.toLowerCase())){ err.textContent='Ese usuario ya existe.'; return; }
-    if(pw.length<4){ err.textContent='La contraseña debe tener al menos 4 caracteres.'; return; }
-    if(pw!==pw2){ err.textContent='Las contraseñas no coinciden.'; return; }
-    const salt=randHex(8); const hash=await hashPw(pw,salt);
-    users.push({user:newUser, salt, hash});
-    usersSet(users);
-    await fbAuthReady();
-    const fbUser = await withTimeout(fbSignInOrCreate(newUser, pw), 6000);
-    await loginAs(newUser, true, fbUser?fbUser.uid:null);
-  }else{
-    const user = document.getElementById('lock-user-select').value;
-    const pw = document.getElementById('lock-pass').value;
-    const users = usersGet()||[];
-    const acc = users.find(u=>u.user===user);
-    if(!acc){ err.textContent='Usuario no encontrado.'; return; }
-    const hash = await hashPw(pw, acc.salt);
-    if(hash!==acc.hash){ err.textContent='Contraseña incorrecta.'; return; }
-    await fbAuthReady();
-    const fbUser = await withTimeout(fbSignInOrCreate(user, pw), 6000);
-    await loginAs(user, false, fbUser?fbUser.uid:null);
+  if(_lockBusy) return;
+  _lockBusy = true;
+  const goBtn = document.getElementById('lock-go');
+  const goBtnOldText = goBtn.textContent;
+  goBtn.disabled = true;
+  goBtn.textContent = 'Entrando...';
+  try{
+    const err=document.getElementById('lock-err');
+    if(LOCK_MODE==='create'){
+      const adminKey=document.getElementById('lock-admin').value;
+      const newUser=document.getElementById('lock-newuser').value.trim();
+      const pw=document.getElementById('lock-newpass').value;
+      const pw2=document.getElementById('lock-newpass2').value;
+      if(adminKey!==ADMIN_KEY){ err.textContent='Clave maestra incorrecta.'; return; }
+      if(!newUser){ err.textContent='Escribe un nombre de usuario.'; return; }
+      const users = usersGet()||[];
+      if(users.some(u=>u.user.toLowerCase()===newUser.toLowerCase())){ err.textContent='Ese usuario ya existe.'; return; }
+      if(pw.length<4){ err.textContent='La contraseña debe tener al menos 4 caracteres.'; return; }
+      if(pw!==pw2){ err.textContent='Las contraseñas no coinciden.'; return; }
+      const salt=randHex(8); const hash=await hashPw(pw,salt);
+      users.push({user:newUser, salt, hash});
+      usersSet(users);
+      await fbAuthReady();
+      const fbUser = await withTimeout(fbSignInOrCreate(newUser, pw), 6000);
+      await loginAs(newUser, true, fbUser?fbUser.uid:null);
+    }else{
+      const user = document.getElementById('lock-user-select').value;
+      const pw = document.getElementById('lock-pass').value;
+      const users = usersGet()||[];
+      const acc = users.find(u=>u.user===user);
+      if(!acc){ err.textContent='Usuario no encontrado.'; return; }
+      const hash = await hashPw(pw, acc.salt);
+      if(hash!==acc.hash){ err.textContent='Contraseña incorrecta.'; return; }
+      await fbAuthReady();
+      const fbUser = await withTimeout(fbSignInOrCreate(user, pw), 6000);
+      await loginAs(user, false, fbUser?fbUser.uid:null);
+    }
+  } finally {
+    _lockBusy = false;
+    goBtn.disabled = false;
+    goBtn.textContent = goBtnOldText;
   }
 }
 function lockApp(){
