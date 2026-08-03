@@ -167,6 +167,40 @@ textarea.resumen-ta:focus{outline:none;border-color:var(--em)}
 .week-head .nowbadge{background:var(--okbg);color:var(--em);font-size:10px;font-weight:800;
   padding:3px 8px;border-radius:8px;margin-left:6px;text-transform:uppercase}
 
+/* ===== Mi Camino (mapa de la malla curricular, tipo juego) ===== */
+.camino-banner{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:13px 15px;
+  margin-bottom:12px;cursor:pointer;box-shadow:var(--shadow)}
+.camino-banner .cb-top{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px;font-weight:800;color:var(--emd)}
+.camino-banner .cb-top .cp-edit{font-size:11px;font-weight:700;color:var(--em);white-space:nowrap}
+.camino-banner .cb-dots{display:flex;gap:4px;flex-wrap:wrap;margin-top:9px}
+.camino-banner .cb-dot{width:13px;height:13px;border-radius:50%;background:var(--line)}
+.camino-banner .cb-dot.done{background:var(--em)}
+.camino-banner .cb-dot.current{background:var(--eml);box-shadow:0 0 0 3px rgba(109,40,217,.25)}
+.camino-banner .cb-sub{font-size:11px;color:var(--grey);margin-top:7px}
+
+.camino-wrap{position:relative;padding-left:38px;margin-top:6px}
+.camino-wrap::before{content:'';position:absolute;left:17px;top:6px;bottom:6px;width:3px;background:var(--line);border-radius:3px}
+.camino-item{position:relative;margin-bottom:12px}
+.camino-node{position:absolute;left:-38px;top:0;width:38px;height:38px;border-radius:50%;display:flex;
+  align-items:center;justify-content:center;font-weight:800;font-size:15px;color:#fff;cursor:pointer;
+  box-shadow:var(--shadow);border:3px solid #fff;z-index:1}
+.camino-node.done{background:linear-gradient(135deg,var(--em),var(--eml))}
+.camino-node.current{background:linear-gradient(135deg,var(--emd),var(--em));box-shadow:0 0 0 5px rgba(109,40,217,.22)}
+.camino-node.locked{background:var(--line);color:var(--grey);box-shadow:none}
+.camino-content{cursor:pointer;padding:6px 0 6px 4px}
+.camino-content .cl-name{font-weight:800;font-size:13px;color:var(--emd);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.camino-content .cl-sub{font-size:11px;color:var(--grey);margin-top:2px}
+.camino-badge{font-size:9.5px;font-weight:800;padding:2px 7px;border-radius:7px;text-transform:uppercase}
+.camino-badge.done{background:var(--okbg);color:var(--em)}
+.camino-badge.here{background:var(--emd);color:#fff}
+.camino-detail{background:var(--okbg);border-radius:10px;padding:10px 12px;margin:2px 0 8px;font-size:12px}
+.camino-detail .cd-list{padding-left:16px}
+.camino-detail .cd-list li{margin:3px 0}
+.camino-detail .cd-tag{font-size:9.5px;color:var(--em2);font-weight:700;text-transform:uppercase}
+.camino-detail .cd-nota{margin-top:7px;font-size:11.5px;color:var(--grey)}
+.camino-summary{text-align:center;font-size:11.5px;color:var(--grey);font-weight:700;margin-top:6px;
+  padding-top:10px;border-top:1px dashed var(--line)}
+
 /* ===== Barra de acciones (home) ===== */
 .actionbar{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px}
 .actionbar .act{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:11px 8px;
@@ -528,6 +562,20 @@ Respuesta: A"></textarea>
   </div>
 </div>
 
+<!-- MODAL: Mi camino en la carrera (malla curricular) -->
+<div class="modal-overlay" id="modal-camino">
+  <div class="modal modal-wrap">
+    <button class="closex" onclick="closeCamino()">✕</button>
+    <h3>🗺️ Mi camino — Medicina Humana UPAO</h3>
+    <p class="hint">Tu recorrido por los 14 ciclos de la carrera (362 créditos en total). Toca un ciclo para ver sus cursos.</p>
+    <div id="camino-body"></div>
+    <div class="modal-actions">
+      <button class="cancel" onclick="configMalla()">✎ Cambiar mi ciclo actual</button>
+      <button class="confirm" onclick="closeCamino()">Cerrar</button>
+    </div>
+  </div>
+</div>
+
 <!-- Input oculto para importar JSON -->
 <input type="file" id="import-file-input" accept="application/json" style="display:none" onchange="handleImportFile(this)">
 
@@ -591,7 +639,7 @@ function configCiclo(){
   const totalStr = prompt('¿Cuántas semanas dura el ciclo en total?', String(cfg.totalSemanas||18));
   if(totalStr===null) return;
   const total = parseInt(totalStr)||18;
-  DATA.ciclo = {inicio: inicioStr.trim(), totalSemanas: total};
+  DATA.ciclo = Object.assign({}, DATA.ciclo, {inicio: inicioStr.trim(), totalSemanas: total});
   save(); renderHome();
 }
 function renderCicloProgress(){
@@ -609,12 +657,172 @@ function renderCicloProgress(){
   </div>`;
 }
 
+// ============ MALLA CURRICULAR (Medicina Humana UPAO) — "Mi Camino" ============
+// Datos de referencia de toda la carrera (14 ciclos / 7 años, 362 créditos), tomados
+// de la malla curricular oficial. XIII y XIV van juntos porque el internado se
+// matricula anualmente y ocupa ambos ciclos a la vez.
+const MALLA_CURRICULAR = [
+  {roman:'I', anio:1, creditos:24, cursos:[
+    {codigo:'CIEN-736', nombre:'Matemática', tipo:'General', creditos:4},
+    {codigo:'CIEN-664', nombre:'Química General', tipo:'General', creditos:4},
+    {codigo:'CIEN-638', nombre:'Biofísica Médica', tipo:'General', creditos:3},
+    {codigo:'CIEN-737', nombre:'Biología Celular', tipo:'General', creditos:4},
+    {codigo:'HUMA-1047', nombre:'Metodología del Aprendizaje Universitario', tipo:'General', creditos:2},
+    {codigo:'MEHU-817', nombre:'Introducción a la Profesión', tipo:'Específico', creditos:3},
+    {codigo:'HUMA-1168', nombre:'Comunicación I', tipo:'General', creditos:4},
+  ]},
+  {roman:'II', anio:1, creditos:23, cursos:[
+    {codigo:'HUMA-1169', nombre:'Comunicación II', tipo:'General', creditos:2},
+    {codigo:'CIEN-738', nombre:'Biología Molecular', tipo:'General', creditos:4},
+    {codigo:'MEHU-818', nombre:'Sistema Excretor', tipo:'Específico', creditos:5},
+    {codigo:'MEHU-819', nombre:'Bioquímica Médica', tipo:'Específico', creditos:5},
+    {codigo:'MEHU-602', nombre:'Casos Integradores I', tipo:'Específico', creditos:2},
+    {codigo:'MEHU-820', nombre:'Aparato Locomotor', tipo:'Específico', creditos:5},
+  ]},
+  {roman:'III', anio:2, creditos:24, cursos:[
+    {codigo:'MEHU-821', nombre:'Casos Integradores II', tipo:'Específico', creditos:2},
+    {codigo:'HUMA-1170', nombre:'Filosofía y Pensamiento Crítico', tipo:'General', creditos:3},
+    {codigo:'MEHU-822', nombre:'Sistema Reproductor', tipo:'Específico', creditos:4},
+    {codigo:'MEHU-823', nombre:'Sistema Endocrino', tipo:'Específico', creditos:4},
+    {codigo:'MEHU-824', nombre:'Sistema Nervioso', tipo:'Específico', creditos:6},
+    {codigo:'MEHU-825', nombre:'Medicina Social y Medio Ambiente', tipo:'Específico', creditos:3},
+    {codigo:'CIEN-739', nombre:'Recursos Digitales', tipo:'General', creditos:2},
+  ]},
+  {roman:'IV', anio:2, creditos:25, cursos:[
+    {codigo:'MEHU-826', nombre:'Sangre y Sistema Inmune', tipo:'Específico', creditos:5},
+    {codigo:'MEHU-827', nombre:'Casos Integradores III', tipo:'Específico', creditos:2},
+    {codigo:'MEHU-828', nombre:'Sistema Respiratorio', tipo:'Específico', creditos:5},
+    {codigo:'MEHU-829', nombre:'Sistema Digestivo', tipo:'Específico', creditos:5},
+    {codigo:'MEHU-830', nombre:'Sistema Cardiovascular', tipo:'Específico', creditos:5},
+    {codigo:'MEHU-831', nombre:'Genética Médica', tipo:'Específico', creditos:3},
+  ]},
+  {roman:'V', anio:3, creditos:23, cursos:[
+    {codigo:'MEHU-655', nombre:'Patología General y Especial', tipo:'Específico', creditos:8},
+    {codigo:'MEHU-832', nombre:'Microbiología y Parasitología', tipo:'Específico', creditos:5},
+    {codigo:'MEHU-833', nombre:'Epidemiología y Medicina Preventiva', tipo:'Específico', creditos:3},
+    {codigo:'MEHU-834', nombre:'Farmacología', tipo:'Específico', creditos:5},
+    {codigo:'MEHU-835', nombre:'Casos Integradores IV', tipo:'Específico', creditos:2},
+  ]},
+  {roman:'VI', anio:3, creditos:25, cursos:[
+    {codigo:'MEHU-836', nombre:'Semiología Médica', tipo:'Específico', creditos:12},
+    {codigo:'MEHU-837', nombre:'Médico Paciente I', tipo:'Especialidad', creditos:2},
+    {codigo:'MEHU-838', nombre:'Diagnóstico por Imágenes y Laboratorio Clínico', tipo:'Específico', creditos:5},
+    {codigo:'MEHU-839', nombre:'Informática Médica y Bioestadística', tipo:'Específico', creditos:3},
+    {codigo:'MEHU-840', nombre:'Fisiopatología', tipo:'Específico', creditos:3},
+  ]},
+  {roman:'VII', anio:4, creditos:23, cursos:[
+    {codigo:'MEHU-841', nombre:'Medicina I', tipo:'Especialidad', creditos:16},
+    {codigo:'MEHU-842', nombre:'Medicina Basada en Evidencias e IA', tipo:'Específico', creditos:2},
+    {codigo:'MEHU-843', nombre:'Médico Paciente II', tipo:'Especialidad', creditos:2},
+    {codigo:'MEHU-844', nombre:'Ética y Deontología Médica', tipo:'Específico', creditos:3},
+  ]},
+  {roman:'VIII', anio:4, creditos:23, cursos:[
+    {codigo:'MEHU-845', nombre:'Medicina II', tipo:'Especialidad', creditos:16},
+    {codigo:'HUMA-1171', nombre:'Metodología de la Investigación', tipo:'General', creditos:3},
+    {codigo:'MEHU-846', nombre:'Médico Paciente III', tipo:'Especialidad', creditos:2},
+    {codigo:'MEHU-847', nombre:'Psicología Médica', tipo:'Específico', creditos:2},
+  ]},
+  {roman:'IX', anio:5, creditos:25, cursos:[
+    {codigo:'MEHU-848', nombre:'Cirugía I', tipo:'Especialidad', creditos:16},
+    {codigo:'MEHU-849', nombre:'Proyecto de Investigación', tipo:'Especialidad', creditos:3},
+    {codigo:'MEHU-625', nombre:'Módulo Integrador Multidisciplinario', tipo:'Específico', creditos:2},
+    {codigo:'ELECTIVO I', nombre:'Electivo I — Ecografía Básica o Soporte Vital de Trauma Pre Hospitalario', tipo:'Específico', creditos:4},
+  ]},
+  {roman:'X', anio:5, creditos:25, cursos:[
+    {codigo:'MEHU-850', nombre:'Cirugía II', tipo:'Especialidad', creditos:14},
+    {codigo:'MEHU-851', nombre:'Psiquiatría', tipo:'Especialidad', creditos:6},
+    {codigo:'MEHU-852', nombre:'Tesis I', tipo:'Especialidad', creditos:3},
+    {codigo:'MEHU-853', nombre:'Redacción de Artículo Científico', tipo:'Especialidad', creditos:2},
+  ], nota:'Electivo II (Geriatría o Nutrición Médica, 3 créd.) se puede llevar este año o el siguiente.'},
+  {roman:'XI', anio:6, creditos:24, cursos:[
+    {codigo:'MEHU-522', nombre:'Ginecología y Obstetricia', tipo:'Especialidad', creditos:17},
+    {codigo:'ELECTIVO II', nombre:'Electivo II — Geriatría, Nutrición Médica o Cuidados Paliativos', tipo:'Especialidad', creditos:3},
+    {codigo:'MEHU-856', nombre:'Salud Global', tipo:'Específico', creditos:2},
+    {codigo:'MEHU-134', nombre:'Medicina Legal', tipo:'Específico', creditos:2},
+  ]},
+  {roman:'XII', anio:6, creditos:26, cursos:[
+    {codigo:'MEHU-857', nombre:'Pediatría', tipo:'Especialidad', creditos:15},
+    {codigo:'MEHU-858', nombre:'Tesis II', tipo:'Especialidad', creditos:3},
+    {codigo:'MEHU-859', nombre:'Gerencia y Economía en Salud', tipo:'Específico', creditos:2},
+    {codigo:'MEHU-667', nombre:'Taller de Casos Clínicos', tipo:'Específico', creditos:4},
+    {codigo:'HUMA-864', nombre:'Vigencia y Trascendencia del Pensamiento de Antenor Orrego', tipo:'General', creditos:2},
+  ]},
+  {roman:'XIII–XIV', anio:7, creditos:72, cursos:[
+    {codigo:'MEHU-860', nombre:'Internado de Medicina', tipo:'Especialidad', creditos:18},
+    {codigo:'MEHU-861', nombre:'Internado de Pediatría', tipo:'Especialidad', creditos:18},
+    {codigo:'MEHU-862', nombre:'Internado de Ginecobstetricia', tipo:'Especialidad', creditos:18},
+    {codigo:'MEHU-863', nombre:'Internado de Cirugía', tipo:'Especialidad', creditos:18},
+  ], nota:'Matrícula anual — dura los dos ciclos del 7° año completo.'},
+];
+const MALLA_TOTAL_CREDITOS = 362;
+
+function getCicloActualIndex(){
+  const cfg = DATA.ciclo || {};
+  const n = cfg.numeroCiclo || 6;
+  return Math.max(1, Math.min(MALLA_CURRICULAR.length, n));
+}
+function configMalla(){
+  const cur = getCicloActualIndex();
+  const opciones = MALLA_CURRICULAR.map((c,i)=>(i+1)+' = Ciclo '+c.roman).join('   ·   ');
+  const ans = prompt('¿En qué ciclo de la carrera vas? Escribe el número (1-'+MALLA_CURRICULAR.length+'):\n\n'+opciones, String(cur));
+  if(ans===null) return;
+  const n = parseInt(ans);
+  if(!n || n<1 || n>MALLA_CURRICULAR.length){ alert('Número de ciclo inválido.'); return; }
+  DATA.ciclo = Object.assign({inicio:'', totalSemanas:18}, DATA.ciclo, {numeroCiclo:n});
+  save();
+  renderHome();
+  const modal = document.getElementById('modal-camino');
+  if(modal && modal.classList.contains('show')) renderCaminoModal();
+}
+function renderCaminoBanner(){
+  const idx = getCicloActualIndex();
+  const total = MALLA_CURRICULAR.length;
+  const c = MALLA_CURRICULAR[idx-1];
+  return `<div class="camino-banner" onclick="openCamino()">
+    <div class="cb-top"><span>🗺️ Mi camino · Ciclo ${c.roman} de ${total}</span><span class="cp-edit">Ver mapa →</span></div>
+    <div class="cb-dots">${MALLA_CURRICULAR.map((x,i)=>`<span class="cb-dot ${i+1<idx?'done':i+1===idx?'current':''}"></span>`).join('')}</div>
+    <div class="cb-sub">${idx-1} de ${total} ciclos completados · Año ${c.anio} de 7</div>
+  </div>`;
+}
+let CAMINO_OPEN=null;
+function openCamino(){ CAMINO_OPEN=null; renderCaminoModal(); document.getElementById('modal-camino').classList.add('show'); }
+function closeCamino(){ document.getElementById('modal-camino').classList.remove('show'); }
+function toggleCaminoNode(i){ CAMINO_OPEN = (CAMINO_OPEN===i) ? null : i; renderCaminoModal(); }
+function renderCaminoModal(){
+  const idx = getCicloActualIndex();
+  const body = document.getElementById('camino-body');
+  body.innerHTML = `<div class="camino-wrap">` + MALLA_CURRICULAR.map((c,i)=>{
+    const n = i+1;
+    const status = n<idx ? 'done' : n===idx ? 'current' : 'locked';
+    const icon = status==='done' ? '✓' : status==='current' ? '📍' : '🔒';
+    const open = CAMINO_OPEN===i;
+    const badge = status==='done' ? '<span class="camino-badge done">Completado</span>'
+      : status==='current' ? '<span class="camino-badge here">Estás aquí</span>' : '';
+    return `<div class="camino-item">
+      <div class="camino-node ${status}" onclick="toggleCaminoNode(${i})">${icon}</div>
+      <div class="camino-content" onclick="toggleCaminoNode(${i})">
+        <div class="cl-name">Ciclo ${c.roman} ${badge}</div>
+        <div class="cl-sub">Año ${c.anio} · ${c.creditos} créditos · ${c.cursos.length} curso${c.cursos.length==1?'':'s'}</div>
+      </div>
+      ${open ? `<div class="camino-detail">
+        <ul class="cd-list">${c.cursos.map(cu=>`<li><b>${escapeHtml(cu.nombre)}</b> <span class="cd-tag">${cu.tipo}</span> · ${cu.creditos} cr.</li>`).join('')}</ul>
+        ${c.nota ? `<div class="cd-nota">💡 ${escapeHtml(c.nota)}</div>` : ''}
+        ${status==='current' ? `<div class="cd-nota" style="color:var(--em);font-weight:700">📍 Estás cursando este ciclo ahora mismo.</div>` : ''}
+        ${status==='done' ? `<div class="cd-nota" style="color:var(--em);font-weight:700">✅ ¡Reto completado! Ya dejaste este ciclo atrás.</div>` : ''}
+        ${status==='locked' ? `<div class="cd-nota">🔒 Todavía no llegas aquí. ¡Sigue avanzando!</div>` : ''}
+      </div>` : ''}
+    </div>`;
+  }).join('') + `</div>
+  <div class="camino-summary">🏆 ${idx-1} de ${MALLA_CURRICULAR.length} ciclos completados · ${MALLA_TOTAL_CREDITOS} créditos en toda la carrera · 🏁 meta: Internado (Año 7)</div>`;
+}
+
 // ============ HOME ============
 function renderHome(){
   const el=document.getElementById('scr-home');
   const dueCount = getDueCards().length;
   el.innerHTML = `
     ${renderCicloProgress()}
+    ${renderCaminoBanner()}
     <div class="actionbar">
       <div class="act primary" onclick="startReview()"><div class="ic">🔁</div><div class="lb">Repasar hoy</div><div class="cnt">${dueCount}</div></div>
       <div class="act" onclick="openExamSetup()"><div class="ic">🧪</div><div class="lb">Simulacro</div></div>
