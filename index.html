@@ -1574,6 +1574,7 @@ function editWeek(courseId, wid){
   save(); renderCourse(courseId);
 }
 function deleteQ(courseId, wid, qid){
+  if(!confirm('¿Eliminar esta pregunta del banco?')) return;
   const c = DATA.courses.find(x=>x.id===courseId);
   const w = c.semanas.find(x=>x.id===wid);
   w.banco = w.banco.filter(x=>x.id!==qid);
@@ -2651,7 +2652,10 @@ function addClase(){
   save(); document.getElementById('hr-nombre').value=''; document.getElementById('hr-aula').value='';
   renderHorarioList();
 }
-function delClase(id){ DATA.horario=DATA.horario.filter(x=>x.id!==id); save(); renderHorarioList(); }
+function delClase(id){
+  if(!confirm('¿Eliminar esta clase del horario?')) return;
+  DATA.horario=DATA.horario.filter(x=>x.id!==id); save(); renderHorarioList();
+}
 function renderHorarioList(){
   ensureHorario();
   const el=document.getElementById('horario-list');
@@ -2701,6 +2705,7 @@ function addExamen(){
   save(); openExamenes(courseId);
 }
 function delExamen(courseId, exId){
+  if(!confirm('¿Eliminar este examen? (las semanas y preguntas del curso no se borran, solo esta definición de examen)')) return;
   const c=DATA.courses.find(x=>x.id===courseId); ensureExamenes(c);
   c.examenes=c.examenes.filter(x=>x.id!==exId); save(); openExamenes(courseId);
 }
