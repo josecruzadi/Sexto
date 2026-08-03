@@ -37,10 +37,13 @@ body{font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
 /* Lista de cursos */
 .courses-label{font-size:11.5px;font-weight:800;color:var(--grey);text-transform:uppercase;letter-spacing:.05em;margin:2px 2px 8px}
 .courses{display:flex;flex-direction:column;gap:11px}
-.course-card{background:var(--card);border-radius:16px;padding:16px;box-shadow:var(--shadow);
+.course-card{position:relative;background:var(--card);border-radius:16px;padding:16px;box-shadow:var(--shadow);
   border:1px solid var(--line);border-left:4px solid var(--em);cursor:pointer}
 .course-card:active{transform:scale(.98)}
-.course-card .cname{font-weight:800;font-size:15px;color:var(--emd)}
+.course-del{position:absolute;top:12px;right:12px;width:24px;height:24px;border-radius:8px;border:none;
+  background:var(--badbg);color:var(--bad);font-size:12px;font-weight:800;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;line-height:1}
+.course-card .cname{font-weight:800;font-size:15px;color:var(--emd);padding-right:26px}
 .course-card .ctype{font-size:11.5px;color:var(--grey);margin-top:2px;font-style:italic}
 .course-card .cmeta{display:flex;gap:10px;margin-top:9px}
 .course-card .badge{font-size:11px;font-weight:700;padding:3px 9px;border-radius:8px}
@@ -592,6 +595,21 @@ Respuesta: A"></textarea>
   </div>
 </div>
 
+<!-- MODAL: Agregar curso (elegido de la malla, no texto libre) -->
+<div class="modal-overlay" id="modal-addcourse">
+  <div class="modal modal-wrap">
+    <button class="closex" onclick="closeAddCourse()">✕</button>
+    <h3>➕ Agregar curso</h3>
+    <p class="hint" id="addcourse-hint"></p>
+    <label>Curso de la malla</label>
+    <select id="addcourse-select"></select>
+    <div class="modal-actions">
+      <button class="cancel" onclick="closeAddCourse()">Cancelar</button>
+      <button class="confirm" id="addcourse-confirm" onclick="confirmAddCourse()">Agregar</button>
+    </div>
+  </div>
+</div>
+
 <!-- Input oculto para importar JSON -->
 <input type="file" id="import-file-input" accept="application/json" style="display:none" onchange="handleImportFile(this)">
 
@@ -884,6 +902,7 @@ function renderHome(){
         const nsem = c.semanas.length;
         const hassil = c.silaboFileName ? 'ok' : '';
         return `<div class="course-card" onclick="openCourse('${c.id}')">
+          <button class="course-del" onclick="event.stopPropagation(); deleteCourse('${c.id}')" title="Eliminar curso">✕</button>
           <div class="cname">${c.nombre}</div>
           <div class="ctype">${c.tipo||''}</div>
           <div class="cmeta">
@@ -892,16 +911,55 @@ function renderHome(){
           </div>
         </div>`;
       }).join('')}
-      <div class="addcourse" onclick="addCourse()">+ Agregar curso</div>
+      <div class="addcourse" onclick="openAddCourse()">+ Agregar curso</div>
     </div>
     <div style="height:10px"></div>
   `;
 }
-function addCourse(){
-  const nombre = prompt('Nombre del curso:');
-  if(!nombre) return;
-  DATA.courses.push(mkCourse(nombre,'',getCicloActualIndex()));
+function deleteCourse(courseId){
+  const c = DATA.courses.find(x=>x.id===courseId);
+  if(!c) return;
+  const tieneContenido = c.silaboFileName || c.semanas.length || (c.evaluacion&&c.evaluacion.length);
+  const msg = tieneContenido
+    ? '¿Eliminar "'+c.nombre+'"? Se borrará su sílabo, semanas, notas y banco de preguntas. Podrás volver a agregarlo desde la malla cuando quieras.'
+    : '¿Eliminar "'+c.nombre+'" de tu lista de cursos?';
+  if(!confirm(msg)) return;
+  DATA.courses = DATA.courses.filter(x=>x.id!==courseId);
   save(); renderHome();
+}
+function openAddCourse(){
+  const idx = getCicloActualIndex();
+  const malla = MALLA_CURRICULAR[idx-1];
+  const yaAgregados = new Set(DATA.courses.filter(c=>c.ciclo===idx).map(c=>c.nombre));
+  const disponibles = malla.cursos.filter(cu=>!yaAgregados.has(cu.nombre));
+  const sel = document.getElementById('addcourse-select');
+  const hint = document.getElementById('addcourse-hint');
+  const btn = document.getElementById('addcourse-confirm');
+  if(!disponibles.length){
+    sel.innerHTML = '';
+    sel.style.display = 'none';
+    btn.disabled = true;
+    hint.textContent = 'Ya agregaste todos los cursos del Ciclo '+malla.roman+' según la malla oficial.';
+  }else{
+    sel.style.display = 'block';
+    btn.disabled = false;
+    sel.innerHTML = disponibles.map(cu=>`<option value="${escapeHtml(cu.nombre)}">${escapeHtml(cu.nombre)} — ${escapeHtml(cu.tipo)} (${cu.creditos} cr.)</option>`).join('');
+    hint.textContent = 'Cursos oficiales del Ciclo '+malla.roman+' que todavía no tienes en tu lista:';
+  }
+  document.getElementById('modal-addcourse').classList.add('show');
+}
+function closeAddCourse(){ document.getElementById('modal-addcourse').classList.remove('show'); }
+function confirmAddCourse(){
+  const sel = document.getElementById('addcourse-select');
+  if(sel.style.display==='none' || !sel.value){ closeAddCourse(); return; }
+  const idx = getCicloActualIndex();
+  const malla = MALLA_CURRICULAR[idx-1];
+  const cu = malla.cursos.find(x=>x.nombre===sel.value);
+  if(!cu) return;
+  DATA.courses.push(mkCourse(cu.nombre, cu.tipo, idx));
+  save();
+  closeAddCourse();
+  renderHome();
 }
 
 // ============ VISTA DE CURSO ============
