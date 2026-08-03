@@ -1283,7 +1283,7 @@ function detectEvalFromSilabo(courseId){
 async function detectEvalFromSilaboAI(courseId){
   const c = DATA.courses.find(x=>x.id===courseId);
   if(!c.silaboText){ alert('Primero sube el sílabo de este curso.'); return; }
-  if(!getApiKey()){ alert('Para usar IA, primero configura tu API key de Anthropic (la sección "Extracción con IA" al subir un sílabo).'); return; }
+  if(!ensureKey()) return;
   if(hasGradesEntered(c) && !confirm('Ya tienes notas registradas. Si detectas de nuevo, se reemplazará la lista de componentes (tus notas actuales se perderán). ¿Continuar?')) return;
   try{
     const draft = await aiExtractEvaluacion(c.silaboText);
