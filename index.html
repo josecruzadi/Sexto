@@ -89,6 +89,10 @@ body{font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
 .eval-row-del{flex:none;background:var(--badbg);color:var(--bad);border:none;border-radius:7px;width:26px;height:26px;font-size:11px;font-weight:800;cursor:pointer}
 .eval-detect-actions{display:flex;flex-direction:column;gap:8px}
 .eval-comp-avg{font-size:11.5px;color:var(--grey);margin-top:7px;font-weight:700}
+.eval-sub{border-left:3px solid var(--line);border-radius:0 8px 8px 0;background:var(--bg);
+  padding:9px 10px;margin:9px 0 0 6px}
+.eval-peso.sub{background:var(--line);color:var(--grey)}
+.draft-sub-list{margin-left:14px;border-left:2px solid var(--line);padding-left:8px}
 .eval-final{text-align:center;margin-top:12px;padding-top:12px;border-top:1px dashed var(--line)}
 .eval-final-num{font-size:30px;font-weight:800;color:var(--emd)}
 .eval-final-num span{font-size:15px;font-weight:700;color:var(--grey)}
@@ -663,8 +667,15 @@ function mkWeek(numero,titulo,temas,examen,examenTipo){
 function mkQ(q,opts,ans,exp){
   return {id:'q'+Math.random().toString(36).slice(2,9), q, opts, ans, exp:exp||'', srs:srsInit()};
 }
+// Un componente puede calificarse directo con "notas" (hoja) o desglosarse en
+// "sub" (subcomponentes, cada uno con su propio peso DENTRO del componente padre
+// y sus propias notas) — igual que en el sílabo real: COMPn (peso de la nota final)
+// puede traer SC1/SC2/SC3 (peso dentro de ese COMPn).
 function mkEvalComp(nombre,peso){
-  return {id:'ev'+Math.random().toString(36).slice(2,9), nombre, peso, notas:[]};
+  return {id:'ev'+Math.random().toString(36).slice(2,9), nombre, peso, notas:[], sub:[]};
+}
+function mkEvalSub(nombre,peso){
+  return {id:'sc'+Math.random().toString(36).slice(2,9), nombre, peso, notas:[]};
 }
 function mkNota(etiqueta,valor){
   return {id:'n'+Math.random().toString(36).slice(2,9), etiqueta:etiqueta||'', valor};
@@ -1025,11 +1036,25 @@ function escapeHtml(s){
   return (s||'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 }
 
-// ============ NOTAS Y EVALUACIÓN (menú fijo de notas por componente, ponderado) ============
-function promedioComp(comp){
-  const vals = comp.notas.filter(n=>n.valor!=null && !isNaN(n.valor)).map(n=>n.valor);
+// ============ NOTAS Y EVALUACIÓN (jerarquía de 2 niveles: componente → subcomponente → notas) ============
+function promedioNotas(notas){
+  const vals = (notas||[]).filter(n=>n.valor!=null && !isNaN(n.valor)).map(n=>n.valor);
   if(!vals.length) return null;
   return vals.reduce((a,b)=>a+b,0)/vals.length;
+}
+// Si el componente tiene subcomponentes (ej. COMPn con SC1/SC2/SC3), su promedio es
+// el ponderado de sus subcomponentes (cada peso es DENTRO del componente, no de la
+// nota final). Si no tiene subcomponentes, es hoja: se promedian sus notas directas.
+function promedioComp(comp){
+  if(comp.sub && comp.sub.length){
+    const conNota = comp.sub.filter(s=>promedioNotas(s.notas)!=null);
+    if(!conNota.length) return null;
+    const pesoSub = conNota.reduce((a,s)=>a+s.peso,0);
+    if(pesoSub<=0) return null;
+    const suma = conNota.reduce((a,s)=>a+promedioNotas(s.notas)*s.peso,0);
+    return suma/pesoSub;
+  }
+  return promedioNotas(comp.notas);
 }
 // Promedio ponderado con lo registrado hasta ahora: cada componente aporta su
 // promedio multiplicado por su peso, normalizado sobre el peso de los componentes
@@ -1056,10 +1081,76 @@ function addEvalComponente(courseId){
   c.evaluacion.push(comp);
   save(); renderCourse(courseId);
 }
-function hasGradesEntered(c){
-  return (c.evaluacion||[]).some(cp=>cp.notas.some(n=>n.valor!=null));
+function addEvalSub(courseId, compId){
+  const c = DATA.courses.find(x=>x.id===courseId);
+  const comp = (c.evaluacion||[]).find(cp=>cp.id===compId);
+  const nombre = prompt('Nombre del subcomponente dentro de "'+comp.nombre+'" (ej: Promedio de Actividades Clínicas):');
+  if(!nombre) return;
+  const pesoStr = prompt('¿Qué porcentaje vale DENTRO de "'+comp.nombre+'"? (no de la nota final del curso, sino de este componente. 1-100)', '20');
+  if(pesoStr===null) return;
+  const peso = parseFloat(pesoStr.replace(',','.'));
+  if(!(peso>0 && peso<=100)){ alert('El porcentaje debe ser un número entre 1 y 100.'); return; }
+  const sub = mkEvalSub(nombre.trim(), peso);
+  sub.notas.push(mkNota(nombre.trim()+' 1', null));
+  comp.sub = comp.sub||[];
+  comp.sub.push(sub);
+  save(); renderCourse(courseId);
 }
-// ---- Detección automática de los componentes de evaluación desde el texto del sílabo ----
+function deleteEvalSub(courseId, compId, subId){
+  if(!confirm('¿Eliminar este subcomponente y sus notas?')) return;
+  const c = DATA.courses.find(x=>x.id===courseId);
+  const comp = (c.evaluacion||[]).find(cp=>cp.id===compId);
+  comp.sub = (comp.sub||[]).filter(s=>s.id!==subId);
+  save(); renderCourse(courseId);
+}
+function hasGradesEntered(c){
+  return (c.evaluacion||[]).some(cp=>
+    cp.notas.some(n=>n.valor!=null) || (cp.sub||[]).some(s=>s.notas.some(n=>n.valor!=null)));
+}
+// ---- Detección automática desde el texto del sílabo ----
+// Primero intenta el formato con etiquetas "(COMPn) NN%" / "(SCn) NN%" (formato real
+// de UPAO, con subcomponentes). Si no aparece, cae al heurístico genérico plano.
+function parseComponentesConTags(text){
+  if(!text) return null;
+  const t = text.replace(/\s+/g,' ').trim();
+  const headMatch = t.match(/componentes? de evaluaci[oó]n/i);
+  if(!headMatch) return null;
+  const calcMatch = t.slice(headMatch.index).match(/c[aá]lculo para la nota final/i);
+  const zonaEndAbs = calcMatch ? headMatch.index+calcMatch.index : Math.min(t.length, headMatch.index+4000);
+  const zona = t.slice(headMatch.index+headMatch[0].length, zonaEndAbs);
+  const tagRe = /\(([A-Za-z]{2,4})\s*0*(\d+)\)\s*(\d{1,3}(?:[.,]\d+)?)\s*%/g;
+  const items = []; let m; let lastEnd = 0;
+  while((m = tagRe.exec(zona))){
+    const tipo = m[1].toUpperCase();
+    const num = parseInt(m[2]);
+    const peso = parseFloat(m[3].replace(',','.'));
+    const nombre = zona.slice(lastEnd, m.index).replace(/[\s.:,\-]+$/,'').trim();
+    lastEnd = m.index + m[0].length;
+    if(peso>0 && peso<=100) items.push({tipo, num, peso, nombre});
+  }
+  if(!items.length) return null;
+  // Cruce con la fórmula "PROMO = NN%*COMP1 + ..." si existe, para confirmar los
+  // pesos reales de cada componente en la nota final (más confiable que el orden del texto).
+  const formulaMap = {};
+  const formulaMatch = t.match(/promo\s*=\s*([\s\S]{0,600}?)(?:\n\n|todas las evaluaciones|$)/i);
+  if(formulaMatch){
+    const fr = /(\d{1,3}(?:[.,]\d+)?)\s*%\s*\*\s*comp\s*0*(\d+)/gi;
+    let fm; while((fm = fr.exec(formulaMatch[1]))){ formulaMap[parseInt(fm[2])] = parseFloat(fm[1].replace(',','.')); }
+  }
+  const comps = []; let current = null;
+  items.forEach(it=>{
+    if(it.tipo==='COMP'){
+      const peso = formulaMap[it.num]!=null ? formulaMap[it.num] : it.peso;
+      current = { nombre: it.nombre ? capWords(it.nombre.toLowerCase()) : ('Componente '+it.num), peso, sub:[] };
+      comps.push(current);
+    }else if(current){
+      let nom = it.nombre;
+      if(!nom || nom.length>60) nom = it.tipo+it.num; // nombre "sucio" (tabla mezclada): usa la etiqueta
+      current.sub.push({ nombre: capWords(nom.toLowerCase()), peso: it.peso });
+    }
+  });
+  return comps;
+}
 function parseEvaluacionFromText(text){
   if(!text) return [];
   const t = text.replace(/\s+/g,' ').trim();
@@ -1069,16 +1160,7 @@ function parseEvaluacionFromText(text){
   const headMatch = t.match(headRe);
   const zonaStart = headMatch ? headMatch.index + headMatch[0].length : 0;
   const zona = t.slice(zonaStart, zonaStart+3000);
-  // Palabras típicas de un componente de evaluación. "comp\d*"/"componente" cubre el
-  // formato real de UPAO (ej. "COMP1 - Introducción", "COMP2 - Dermatología..."),
-  // donde el nombre es el tema/sistema clínico y no una palabra de evaluación genérica.
   const keywords = /(comp(?:onente)?\s*\d*|ex[aá]men|pr[aá]ctica|trabajo|informe|participaci[oó]n|caso|proyecto|tesis|asistencia|exposici[oó]n|control|intervenci[oó]n|laboratorio|semin[ao]rio|taller|foro)/i;
-  // Escanea cada "NN%" y toma como nombre el texto inmediatamente anterior (hasta
-  // donde terminó el ítem previo o ~100 caracteres atrás, lo que esté más cerca).
-  // Si SÍ se ubicó un título de evaluación explícito, se confía en todo lo que haya
-  // dentro de esa zona (sin exigir palabras clave), porque los nombres reales suelen
-  // ser temas clínicos ("Dermatología, Cabeza y Cuello...") y no coinciden con ninguna
-  // lista fija de palabras.
   const pctRe = /(\d{1,3}(?:[.,]\d+)?)\s?%/g;
   const found = []; let m; let lastEnd = 0;
   while((m = pctRe.exec(zona))){
@@ -1090,26 +1172,35 @@ function parseEvaluacionFromText(text){
     if(!nombre || nombre.length<3) continue;
     if(!headMatch && !keywords.test(nombre)) continue;
     if(nombre.length>75) nombre = nombre.slice(-75).trim();
-    found.push({nombre: capWords(nombre.toLowerCase()), peso});
+    found.push({nombre: capWords(nombre.toLowerCase()), peso, sub:[]});
   }
   const seen = new Set(); const out=[];
   found.forEach(f=>{ const k=f.nombre.toLowerCase(); if(!seen.has(k)){ seen.add(k); out.push(f); } });
   return out.slice(0,10);
 }
+function detectarEvaluacionHeuristica(text){
+  return parseComponentesConTags(text) || parseEvaluacionFromText(text);
+}
 async function aiExtractEvaluacion(text){
   const key=getApiKey();
   if(!key) throw new Error('NO_KEY');
   const prompt = 'Eres un extractor de sílabos universitarios. A partir del TEXTO del sílabo, busca la sección de '
-    + '"Sistema de Evaluación" / "Criterios de Evaluación" / ponderación de notas, y devuelve EXCLUSIVAMENTE un JSON '
-    + 'válido (sin markdown, sin ```), con esta forma exacta:\n'
-    + '{"componentes":[{"nombre":"...","peso":NN}]}\n'
-    + 'Reglas:\n- "peso" es el porcentaje (número, sin el símbolo %) que ese componente vale en la nota final.\n'
-    + '- No inventes componentes que no aparezcan en el texto.\n- Si no encuentras una sección de evaluación, devuelve {"componentes":[]}.\n\n'
+    + '"Componentes de Evaluación" / "Sistema de Evaluación" / "Criterios de Evaluación", y devuelve EXCLUSIVAMENTE '
+    + 'un JSON válido (sin markdown, sin ```), con esta forma exacta:\n'
+    + '{"componentes":[{"nombre":"...","peso":NN,"sub":[{"nombre":"...","peso":MM}]}]}\n'
+    + 'Reglas:\n- "peso" de un componente de nivel superior es el porcentaje que vale en la NOTA FINAL del curso.\n'
+    + '- Algunos sílabos (como los de UPAO) desglosan cada componente en subcomponentes con etiquetas como '
+    + '"(COMP1) 7%" para el componente y "(SC1) 15%", "(SC2) 70%" para sus subcomponentes: en ese caso, el "peso" '
+    + 'de cada subcomponente es el porcentaje DENTRO de su componente padre (no de la nota final), y normalmente '
+    + 'los pesos de los subcomponentes de un mismo componente suman 100%.\n'
+    + '- Incluye "sub" SOLO si el sílabo realmente desglosa ese componente; si no, omite "sub" o déjalo vacío.\n'
+    + '- Si hay una fórmula tipo "PROMO = 7%*COMP1 + ..." al final, úsala para confirmar los pesos de los componentes de nivel superior.\n'
+    + '- No inventes componentes que no aparezcan en el texto. Si no encuentras nada, devuelve {"componentes":[]}.\n\n'
     + 'TEXTO DEL SÍLABO:\n"""\n'+text+'\n"""';
   const res = await fetch('https://api.anthropic.com/v1/messages',{
     method:'POST',
     headers:{'content-type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-    body:JSON.stringify({ model:getModel(), max_tokens:1200, messages:[{role:'user',content:prompt}] })
+    body:JSON.stringify({ model:getModel(), max_tokens:1800, messages:[{role:'user',content:prompt}] })
   });
   if(!res.ok){ let t=''; try{t=await res.text();}catch(e){} throw new Error('HTTP '+res.status+(t?' · '+t.slice(0,160):'')); }
   const data = await res.json();
@@ -1119,14 +1210,17 @@ async function aiExtractEvaluacion(text){
   if(a>=0 && z>a) out = out.slice(a, z+1);
   const parsed = JSON.parse(out);
   const arr = parsed.componentes||[];
-  return arr.map(x=>({nombre:String(x.nombre||'').trim().slice(0,60), peso:parseFloat(x.peso)||0}))
-    .filter(x=>x.nombre && x.peso>0 && x.peso<=100);
+  return arr.map(x=>({
+    nombre: String(x.nombre||'').trim().slice(0,70),
+    peso: parseFloat(x.peso)||0,
+    sub: Array.isArray(x.sub) ? x.sub.map(s=>({nombre:String(s.nombre||'').trim().slice(0,70), peso:parseFloat(s.peso)||0})).filter(s=>s.nombre && s.peso>0) : []
+  })).filter(x=>x.nombre && x.peso>0 && x.peso<=100);
 }
 function detectEvalFromSilabo(courseId){
   const c = DATA.courses.find(x=>x.id===courseId);
   if(!c.silaboText){ alert('Primero sube el sílabo de este curso.'); return; }
   if(hasGradesEntered(c) && !confirm('Ya tienes notas registradas. Si detectas de nuevo, se reemplazará la lista de componentes (tus notas actuales se perderán). ¿Continuar?')) return;
-  const draft = parseEvaluacionFromText(c.silaboText);
+  const draft = detectarEvaluacionHeuristica(c.silaboText);
   if(!draft.length) alert('No se detectaron automáticamente componentes de evaluación en el texto. Puedes probar "Detectar con IA" o agregarlos a mano en la siguiente pantalla.');
   openEvalDraftModal(courseId, draft);
 }
@@ -1141,21 +1235,23 @@ async function detectEvalFromSilaboAI(courseId){
     openEvalDraftModal(courseId, draft);
   }catch(e){
     alert('No se pudo extraer con IA ('+e.message+'). Probando detección automática básica...');
-    openEvalDraftModal(courseId, parseEvaluacionFromText(c.silaboText));
+    openEvalDraftModal(courseId, detectarEvaluacionHeuristica(c.silaboText));
   }
 }
-// ---- Modal de revisión del borrador de evaluación ----
+// ---- Modal de revisión del borrador de evaluación (2 niveles: componente + subcomponentes) ----
 let EVALDRAFT=[], EVALDRAFT_COURSE=null;
 function openEvalDraftModal(courseId, draft){
   EVALDRAFT_COURSE = courseId;
-  EVALDRAFT = (draft||[]).map(d=>({nombre:d.nombre, peso:d.peso}));
+  EVALDRAFT = (draft||[]).map(d=>({nombre:d.nombre, peso:d.peso, sub:(d.sub||[]).map(s=>({nombre:s.nombre, peso:s.peso}))}));
   renderEvalDraftList();
   document.getElementById('modal-draft-eval').classList.add('show');
 }
 function renderEvalDraftList(){
   const el = document.getElementById('draft-eval-list');
   const total = EVALDRAFT.reduce((a,d)=>a+(parseFloat(d.peso)||0),0);
-  el.innerHTML = (EVALDRAFT.length ? EVALDRAFT.map((d,idx)=>`
+  el.innerHTML = (EVALDRAFT.length ? EVALDRAFT.map((d,idx)=>{
+    const subTotal = d.sub.reduce((a,s)=>a+(parseFloat(s.peso)||0),0);
+    return `
     <div class="draftweek">
       <div class="drow">
         <input type="text" placeholder="Nombre del componente" value="${escapeHtml(d.nombre)}" style="flex:1" onchange="EVALDRAFT[${idx}].nombre=this.value">
@@ -1163,11 +1259,24 @@ function renderEvalDraftList(){
         <span style="font-size:12px;color:var(--grey);flex:none">%</span>
         <button class="rmweek" onclick="removeEvalDraft(${idx})">✕</button>
       </div>
-    </div>` ).join('') : `<div class="empty-hint">No se detectó nada automáticamente. Agrega los componentes a mano.</div>`)
-    + `<div class="hint" style="margin-top:8px;color:${total===100?'var(--em)':'var(--amber)'}">Suman ${total}% ${total===100?'✓':'(deberían sumar 100% según tu sílabo)'}</div>`;
+      ${d.sub.length ? `<div class="draft-sub-list">${d.sub.map((s,sidx)=>`
+        <div class="drow" style="margin-top:6px">
+          <input type="text" placeholder="Subcomponente" value="${escapeHtml(s.nombre)}" style="flex:1" onchange="EVALDRAFT[${idx}].sub[${sidx}].nombre=this.value">
+          <input type="number" value="${s.peso}" min="0" max="100" style="width:58px" onchange="EVALDRAFT[${idx}].sub[${sidx}].peso=parseFloat(this.value)||0">
+          <span style="font-size:11px;color:var(--grey);flex:none">%</span>
+          <button class="rmweek" onclick="removeEvalDraftSub(${idx},${sidx})">✕</button>
+        </div>`).join('')}
+        <div class="hint" style="margin:4px 0 0 0;color:${subTotal===100?'var(--em)':'var(--amber)'}">Subcomponentes suman ${subTotal}% ${subTotal===100?'✓':'(deberían sumar 100% dentro de este componente)'}</div>
+      ` : ''}
+      <span class="togglelink" style="font-size:11px;margin-top:6px;display:inline-block" onclick="addEvalDraftSub(${idx})">+ Agregar subcomponente</span>
+    </div>`;
+  }).join('') : `<div class="empty-hint">No se detectó nada automáticamente. Agrega los componentes a mano.</div>`)
+    + `<div class="hint" style="margin-top:8px;color:${total===100?'var(--em)':'var(--amber)'}">Los componentes suman ${total}% ${total===100?'✓':'(deberían sumar 100% en la nota final)'}</div>`;
 }
 function removeEvalDraft(idx){ EVALDRAFT.splice(idx,1); renderEvalDraftList(); }
-function addEvalDraftRow(){ EVALDRAFT.push({nombre:'', peso:0}); renderEvalDraftList(); }
+function addEvalDraftRow(){ EVALDRAFT.push({nombre:'', peso:0, sub:[]}); renderEvalDraftList(); }
+function addEvalDraftSub(idx){ EVALDRAFT[idx].sub.push({nombre:'', peso:0}); renderEvalDraftList(); }
+function removeEvalDraftSub(idx,sidx){ EVALDRAFT[idx].sub.splice(sidx,1); renderEvalDraftList(); }
 function closeEvalDraftModal(){ document.getElementById('modal-draft-eval').classList.remove('show'); }
 function confirmEvalDraft(){
   const courseId = EVALDRAFT_COURSE;
@@ -1176,7 +1285,16 @@ function confirmEvalDraft(){
   if(!validos.length){ alert('Agrega al menos un componente con nombre y porcentaje.'); return; }
   c.evaluacion = validos.map(d=>{
     const comp = mkEvalComp(d.nombre.trim(), d.peso);
-    comp.notas.push(mkNota(d.nombre.trim()+' 1', null));
+    const subsValidos = (d.sub||[]).filter(s=>s.nombre && s.nombre.trim() && s.peso>0);
+    if(subsValidos.length){
+      comp.sub = subsValidos.map(s=>{
+        const sub = mkEvalSub(s.nombre.trim(), s.peso);
+        sub.notas.push(mkNota(s.nombre.trim()+' 1', null));
+        return sub;
+      });
+    }else{
+      comp.notas.push(mkNota(d.nombre.trim()+' 1', null));
+    }
     return comp;
   });
   save();
@@ -1189,33 +1307,57 @@ function deleteEvalComponente(courseId, compId){
   c.evaluacion = (c.evaluacion||[]).filter(cp=>cp.id!==compId);
   save(); renderCourse(courseId);
 }
-// Agrega una fila más al menú (sin prompt: solo aparece lista para llenar)
-function addNotaRow(courseId, compId){
+// ---- Filas de notas: comunes para un componente hoja o para un subcomponente ----
+// subId es null/undefined para notas directas del componente, o el id del subcomponente.
+function findNotasArray(c, compId, subId){
+  const comp = (c.evaluacion||[]).find(cp=>cp.id===compId);
+  if(!comp) return null;
+  if(subId){ const sub=(comp.sub||[]).find(s=>s.id===subId); return sub ? sub.notas : null; }
+  return comp.notas;
+}
+function addNotaRow(courseId, compId, subId){
   const c = DATA.courses.find(x=>x.id===courseId);
   const comp = (c.evaluacion||[]).find(cp=>cp.id===compId);
-  comp.notas.push(mkNota(comp.nombre+' '+(comp.notas.length+1), null));
+  const notas = findNotasArray(c, compId, subId);
+  const nombreBase = subId ? (comp.sub.find(s=>s.id===subId).nombre) : comp.nombre;
+  notas.push(mkNota(nombreBase+' '+(notas.length+1), null));
   save(); renderCourse(courseId);
 }
-function deleteNota(courseId, compId, notaId){
+function deleteNota(courseId, compId, subId, notaId){
   const c = DATA.courses.find(x=>x.id===courseId);
   const comp = (c.evaluacion||[]).find(cp=>cp.id===compId);
-  comp.notas = comp.notas.filter(n=>n.id!==notaId);
+  if(subId){
+    const sub = (comp.sub||[]).find(s=>s.id===subId);
+    sub.notas = sub.notas.filter(n=>n.id!==notaId);
+  }else{
+    comp.notas = comp.notas.filter(n=>n.id!==notaId);
+  }
   save(); renderCourse(courseId);
 }
-function updateNotaEtiqueta(courseId, compId, notaId, val){
+function updateNotaEtiqueta(courseId, compId, subId, notaId, val){
   const c = DATA.courses.find(x=>x.id===courseId);
-  const comp = (c.evaluacion||[]).find(cp=>cp.id===compId);
-  const n = comp.notas.find(x=>x.id===notaId);
+  const notas = findNotasArray(c, compId, subId);
+  const n = notas.find(x=>x.id===notaId);
   n.etiqueta = val;
   save(); renderCourse(courseId);
 }
-function updateNotaValor(courseId, compId, notaId, val){
+function updateNotaValor(courseId, compId, subId, notaId, val){
   const c = DATA.courses.find(x=>x.id===courseId);
-  const comp = (c.evaluacion||[]).find(cp=>cp.id===compId);
-  const n = comp.notas.find(x=>x.id===notaId);
+  const notas = findNotasArray(c, compId, subId);
+  const n = notas.find(x=>x.id===notaId);
   if(val===''||val==null) n.valor = null;
   else{ const num = parseFloat(String(val).replace(',','.')); n.valor = isNaN(num) ? null : Math.max(0, Math.min(20, num)); }
   save(); renderCourse(courseId);
+}
+function renderNotasRows(c, compId, subId, notas){
+  return `<div class="eval-rows">
+    ${notas.map(n=>`<div class="eval-row">
+      <input type="text" class="eval-row-label" value="${escapeHtml(n.etiqueta)}" placeholder="Nombre de la nota" onchange="updateNotaEtiqueta('${c.id}','${compId}',${subId?`'${subId}'`:'null'},'${n.id}', this.value)">
+      <input type="number" class="eval-row-input" min="0" max="20" step="0.01" placeholder="—" value="${n.valor==null?'':n.valor}" onchange="updateNotaValor('${c.id}','${compId}',${subId?`'${subId}'`:'null'},'${n.id}', this.value)">
+      <span class="eval-row-scale">/20</span>
+      <button class="eval-row-del" onclick="deleteNota('${c.id}','${compId}',${subId?`'${subId}'`:'null'},'${n.id}')" title="Eliminar fila">✕</button>
+    </div>`).join('')}
+  </div>`;
 }
 function renderEvalBox(c){
   const comps = c.evaluacion||[];
@@ -1225,26 +1367,34 @@ function renderEvalBox(c){
     <div class="stitle">📊 Notas y evaluación</div>
     ${comps.length ? comps.map(cp=>{
       const prom = promedioComp(cp);
+      const tieneSub = cp.sub && cp.sub.length;
       return `<div class="eval-comp">
         <div class="eval-comp-head">
           <div><b>${escapeHtml(cp.nombre)}</b><span class="eval-peso">${cp.peso}%</span></div>
           <div class="eval-comp-actions">
-            <span class="togglelink" onclick="addNotaRow('${c.id}','${cp.id}')">+ Fila</span>
+            ${tieneSub ? '' : `<span class="togglelink" onclick="addNotaRow('${c.id}','${cp.id}', null)">+ Fila</span>`}
+            <span class="togglelink" onclick="addEvalSub('${c.id}','${cp.id}')">+ Subcomponente</span>
             <span class="togglelink" style="color:var(--bad)" onclick="deleteEvalComponente('${c.id}','${cp.id}')">Eliminar</span>
           </div>
         </div>
-        <div class="eval-rows">
-          ${cp.notas.map(n=>`<div class="eval-row">
-            <input type="text" class="eval-row-label" value="${escapeHtml(n.etiqueta)}" placeholder="Nombre de la nota" onchange="updateNotaEtiqueta('${c.id}','${cp.id}','${n.id}', this.value)">
-            <input type="number" class="eval-row-input" min="0" max="20" step="0.01" placeholder="—" value="${n.valor==null?'':n.valor}" onchange="updateNotaValor('${c.id}','${cp.id}','${n.id}', this.value)">
-            <span class="eval-row-scale">/20</span>
-            <button class="eval-row-del" onclick="deleteNota('${c.id}','${cp.id}','${n.id}')" title="Eliminar fila">✕</button>
-          </div>`).join('')}
-        </div>
+        ${tieneSub ? cp.sub.map(s=>{
+          const subProm = promedioNotas(s.notas);
+          return `<div class="eval-sub">
+            <div class="eval-comp-head">
+              <div>${escapeHtml(s.nombre)}<span class="eval-peso sub">${s.peso}%</span></div>
+              <div class="eval-comp-actions">
+                <span class="togglelink" onclick="addNotaRow('${c.id}','${cp.id}','${s.id}')">+ Fila</span>
+                <span class="togglelink" style="color:var(--bad)" onclick="deleteEvalSub('${c.id}','${cp.id}','${s.id}')">Eliminar</span>
+              </div>
+            </div>
+            ${renderNotasRows(c, cp.id, s.id, s.notas)}
+            <div class="eval-comp-avg">${subProm!=null ? 'Promedio: <b>'+subProm.toFixed(2)+'</b>/20' : 'Aún faltan notas por escribir'}</div>
+          </div>`;
+        }).join('') : renderNotasRows(c, cp.id, null, cp.notas)}
         <div class="eval-comp-avg">${prom!=null ? 'Promedio del componente: <b>'+prom.toFixed(2)+'</b>/20' : 'Aún faltan notas por escribir'}</div>
       </div>`;
     }).join('') : `<div class="empty-hint" style="padding:14px 6px">${c.silaboText
-        ? 'Detecta los componentes de evaluación (exámenes, prácticas, casos clínicos...) directo de tu sílabo, en vez de escribirlos a mano. Después solo escribes cada nota en su casillero.'
+        ? 'Detecta los componentes de evaluación (y sus subcomponentes, si el sílabo los trae) directo de tu sílabo, en vez de escribirlos a mano. Después solo escribes cada nota en su casillero.'
         : 'Sube el sílabo de este curso para detectar sus componentes de evaluación automáticamente (o agrégalos a mano).'}</div>`}
     <div class="eval-detect-actions">
       ${c.silaboText ? `
@@ -1253,7 +1403,7 @@ function renderEvalBox(c){
       ` : ''}
       <button class="addqbtn" onclick="addEvalComponente('${c.id}')" style="opacity:.7">+ Agregar componente a mano</button>
     </div>
-    ${pesoTotal>0 && pesoTotal!==100 ? `<div class="hint" style="color:var(--amber);margin-top:8px">⚠ Los pesos suman ${pesoTotal}% (deberían sumar 100% según tu sílabo).</div>` : ''}
+    ${pesoTotal>0 && pesoTotal!==100 ? `<div class="hint" style="color:var(--amber);margin-top:8px">⚠ Los componentes suman ${pesoTotal}% (deberían sumar 100% según tu sílabo).</div>` : ''}
     <div class="eval-final">
       ${final ? `<div class="eval-final-num">${final.valor.toFixed(2)}<span>/20</span></div>
         <div class="eval-final-sub">Promedio ponderado con lo registrado hasta ahora (${final.pesoEvaluado}% del curso ya evaluado)</div>`
