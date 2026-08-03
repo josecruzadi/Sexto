@@ -50,6 +50,9 @@ body{font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
 .course-card .badge.weeks{background:var(--okbg);color:var(--em)}
 .course-card .badge.silabo{background:var(--amberbg);color:var(--amber)}
 .course-card .badge.silabo.ok{background:var(--okbg);color:var(--em)}
+.badge.nota{font-size:11px;font-weight:700;padding:3px 9px;border-radius:8px;margin-left:6px;white-space:nowrap}
+.badge.nota.ok{background:var(--okbg);color:var(--ok)}
+.badge.nota.warn{background:var(--badbg);color:var(--bad)}
 .addcourse{background:var(--card);border:2px dashed var(--line);border-radius:16px;
   padding:18px;text-align:center;color:var(--grey);font-weight:700;cursor:pointer;font-size:13.5px}
 
@@ -935,6 +938,7 @@ function renderHome(){
       ${cursosCiclo.map(c=>{
         const nsem = c.semanas.length;
         const hassil = c.silaboFileName ? 'ok' : '';
+        const nota = notaFinalCurso(c);
         return `<div class="course-card" onclick="openCourse('${c.id}')">
           <button class="course-del" onclick="event.stopPropagation(); deleteCourse('${c.id}')" title="Eliminar curso">✕</button>
           <div class="cname">${c.nombre}</div>
@@ -942,6 +946,7 @@ function renderHome(){
           <div class="cmeta">
             <span class="badge weeks">${nsem} semana${nsem==1?'':'s'}</span>
             <span class="badge silabo ${hassil}">${hassil?'📄 Sílabo cargado':'Sin sílabo'}</span>
+            ${nota ? `<span class="badge nota ${nota.valor>=10.5?'ok':'warn'}">📊 ${nota.valor.toFixed(1)}/20</span>` : ''}
           </div>
         </div>`;
       }).join('')}
@@ -1856,7 +1861,9 @@ function handleImportFile(input){
       const parsed = JSON.parse(e.target.result);
       if(!parsed.courses) throw new Error('Formato inválido');
       if(confirm('Esto reemplazará todos tus datos actuales. ¿Continuar?')){
-        DATA = parsed; save(); renderHome();
+        DATA = normalizeData(parsed);
+        syncCoursesForCiclo(getCicloActualIndex());
+        save(); renderHome();
         alert('Datos importados ✓');
       }
     }catch(err){ alert('Archivo inválido'); }
@@ -2048,7 +2055,8 @@ function computeStats(){
   const perCourse=DATA.courses.map(c=>{
     let q=0,due=0,withRes=0;
     c.semanas.forEach(w=>{ q+=w.banco.length; if(w.resumen&&w.resumen.trim())withRes++; w.banco.forEach(qq=>{ if(isDue(qq))due++; }); });
-    return {nombre:c.nombre, semanas:c.semanas.length, preguntas:q, due, resumen:withRes};
+    const final = notaFinalCurso(c);
+    return {nombre:c.nombre, semanas:c.semanas.length, preguntas:q, due, resumen:withRes, nota: final?final.valor:null};
   });
   return {
     perCourse,
@@ -2071,10 +2079,11 @@ function renderStats(){
       <div class="stat-card"><div class="big">${s.acc7==null?'—':s.acc7+'%'}</div><div class="lb">aciertos (7 días)</div></div>
     </div>
     <div style="font-size:12px;font-weight:800;color:var(--em2);text-transform:uppercase;letter-spacing:.06em;margin:6px 0 8px">Por curso</div>
+    ${s.perCourse.some(c=>c.nota!=null) ? `<div class="hint" style="margin-bottom:8px">Verde = aprobado (≥10.5, referencial) · revisa el mínimo real de tu sílabo.</div>` : ''}
     ${s.perCourse.map(c=>{
       const pct = c.semanas? Math.round(100*c.resumen/c.semanas):0;
       return `<div class="course-stat">
-        <div class="csn">${escapeHtml(c.nombre)}</div>
+        <div class="csn">${escapeHtml(c.nombre)} ${c.nota!=null?`<span class="badge nota ${c.nota>=10.5?'ok':'warn'}">${c.nota.toFixed(1)}/20</span>`:''}</div>
         <div class="bar"><i style="width:${pct}%"></i></div>
         <div class="row"><span>${c.resumen}/${c.semanas} semanas con resumen</span><span>${c.preguntas} preg · ${c.due} hoy</span></div>
       </div>`;
@@ -2263,19 +2272,33 @@ function migrateLegacyData(){
   }catch(e){}
 }
 function dataKeyFor(user){ return STORAGE_KEY+'__'+user; }
+// Normaliza datos que vienen de versiones viejas (localStorage antiguo o un backup
+// exportado hace tiempo): agrega los campos que no existían todavía, para que los
+// cursos nunca queden "invisibles" por faltarles un campo que el código actual
+// necesita (ej. antes de tener malla/ciclo, un curso sin `ciclo` no calzaba con
+// ningún filtro de ciclo y desaparecía del home). Se usa tanto al cargar la cuenta
+// como al importar un backup.
+function normalizeData(d){
+  if(!d || typeof d!=='object' || !Array.isArray(d.courses)) return seedDefault();
+  if(!d.ciclo) d.ciclo = {inicio:'', totalSemanas:18, numeroCiclo:6};
+  if(!d.ciclo.numeroCiclo) d.ciclo.numeroCiclo = 6;
+  d.courses.forEach(c=>{
+    if(!c.ciclo) c.ciclo = 6; // cursos guardados antes de tener malla/ciclos: eran los del 6to ciclo
+    if(!Array.isArray(c.evaluacion)) c.evaluacion = [];
+    if(!Array.isArray(c.semanas)) c.semanas = [];
+    c.evaluacion.forEach(cp=>{
+      if(!Array.isArray(cp.notas)) cp.notas = [];
+      if(!Array.isArray(cp.sub)) cp.sub = [];
+      cp.sub.forEach(s=>{ if(!Array.isArray(s.notas)) s.notas = []; });
+    });
+    c.semanas.forEach(w=>{ if(!Array.isArray(w.banco)) w.banco = []; });
+  });
+  return d;
+}
 function loadFor(user){
   try{
     const raw = localStorage.getItem(dataKeyFor(user));
-    if(raw){
-      const d = JSON.parse(raw);
-      if(!d.ciclo) d.ciclo = {inicio:'', totalSemanas:18, numeroCiclo:6};
-      if(!d.ciclo.numeroCiclo) d.ciclo.numeroCiclo = 6;
-      (d.courses||[]).forEach(c=>{
-        if(!c.ciclo) c.ciclo = 6; // cursos guardados antes de tener malla/ciclos: eran los del 6to ciclo
-        if(!c.evaluacion) c.evaluacion = [];
-      });
-      return d;
-    }
+    if(raw) return normalizeData(JSON.parse(raw));
   }catch(e){}
   return seedDefault();
 }
