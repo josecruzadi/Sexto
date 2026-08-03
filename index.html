@@ -1480,6 +1480,7 @@ function renderWeekHTML(courseId, w, isCurrent){
         ${w.banco.length? `<button class="playbtn" onclick="playWeekQuiz('${courseId}','${w.id}')">▶ Practicar esta semana (${w.banco.length})</button>`:''}
       </div>
       <div style="margin-top:12px;text-align:right">
+        <button class="rmweek" style="background:var(--okbg);color:var(--em);margin-right:6px" onclick="editWeek('${courseId}','${w.id}')">✎ Editar semana</button>
         <button class="rmweek" onclick="deleteWeek('${courseId}','${w.id}')">Eliminar semana</button>
       </div>
     </div>
@@ -1516,6 +1517,33 @@ function deleteWeek(courseId, wid){
   if(!confirm('¿Eliminar esta semana y todo su contenido?')) return;
   const c = DATA.courses.find(x=>x.id===courseId);
   c.semanas = c.semanas.filter(x=>x.id!==wid);
+  save(); renderCourse(courseId);
+}
+// Corrige número/título/temas/examen de una semana sin borrarla (borrar se llevaría
+// también su resumen, banco de preguntas y diapositivas).
+function editWeek(courseId, wid){
+  const c = DATA.courses.find(x=>x.id===courseId);
+  const w = c.semanas.find(x=>x.id===wid);
+  const numStr = prompt('Número de semana:', String(w.numero));
+  if(numStr===null) return;
+  const numero = parseInt(numStr);
+  if(!numero || numero<1){ alert('Número de semana inválido.'); return; }
+  const titulo = prompt('Título de la semana (opcional):', w.titulo||'');
+  if(titulo===null) return;
+  const temasStr = prompt('Temas (separados por coma):', (w.temas||[]).join(', '));
+  if(temasStr===null) return;
+  const temas = temasStr.split(',').map(t=>t.trim()).filter(Boolean);
+  const esExamen = confirm('¿Es semana de examen?\n\nAceptar = sí, es examen · Cancelar = no, es semana normal.');
+  let examenTipo = w.examenTipo||'';
+  if(esExamen){
+    const et = prompt('Tipo de examen (ej: Examen Parcial):', examenTipo||'Examen');
+    if(et!==null) examenTipo = et.trim()||'Examen';
+  }
+  w.numero = numero;
+  w.titulo = titulo.trim();
+  w.temas = temas;
+  w.examen = esExamen;
+  w.examenTipo = esExamen ? examenTipo : '';
   save(); renderCourse(courseId);
 }
 function deleteQ(courseId, wid, qid){
