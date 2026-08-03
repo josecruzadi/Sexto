@@ -1187,7 +1187,7 @@ function parseComponentesConTags(text){
   // Etiquetas tipo "(COMP1) 7%" / "(SC1) 15%" (Semiología), pero también
   // "(EP1) 20%" / "(EF) 30%" / "(EVA 3A) 20%" (Diagnóstico): el número y el
   // sufijo de letra son opcionales para cubrir ambos formatos reales de UPAO.
-  const tagRe = /\(([A-Za-z]{2,6})\s*0*(\d*)([A-Za-z]?)\)\s*(\d{1,3}(?:[.,]\d+)?)\s*%/g;
+  const tagRe = /\(([A-Za-z]{2,6})\s*0*(\d*)\s*([A-Za-z]?)\)\s*(\d{1,3}(?:[.,]\d+)?)\s*%/g;
   const items = []; let m; let lastEnd = 0;
   while((m = tagRe.exec(zona))){
     const tipo = m[1].toUpperCase();
