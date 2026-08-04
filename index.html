@@ -4,7 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#3730A3">
-<title>Clínicas 6to Ciclo · UPAO</title>
+<title>MYCI · UPAO Medicina Humana</title>
+<meta name="apple-mobile-web-app-title" content="MYCI">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.11.0/mammoth.browser.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -365,7 +366,7 @@ input,select,textarea{background:var(--card);color:var(--ink)}
 <div class="wrap">
   <div class="top">
     <button class="lockbtn" onclick="lockApp()">🔒 Bloquear</button>
-    <div class="brand">UPAO · Medicina Humana</div>
+    <div class="brand">MYCI · UPAO Medicina Humana</div>
     <div class="ttl" id="app-title">🩺 Ciclo VI — Año 3</div>
     <div class="sub">Sílabos, plan semanal, resúmenes y bancos por curso</div>
   </div>
@@ -551,7 +552,7 @@ Respuesta: A"></textarea>
 <div id="lockscreen">
   <div class="lockcard">
     <div class="logo">🩺</div>
-    <h2 id="lock-title">Clínicas 6to Ciclo</h2>
+    <h2 id="lock-title">MYCI</h2>
     <p class="sub" id="lock-sub">Elige tu usuario para entrar</p>
 
     <div id="lock-login-fields">
@@ -564,12 +565,13 @@ Respuesta: A"></textarea>
       <input type="text" id="lock-newuser" placeholder="Nuevo usuario" autocomplete="username">
       <input type="password" id="lock-newpass" placeholder="Nueva contraseña" autocomplete="new-password">
       <input type="password" id="lock-newpass2" placeholder="Repite la nueva contraseña" autocomplete="new-password">
+      <select id="lock-newciclo"></select>
     </div>
 
     <div class="err" id="lock-err"></div>
     <button class="go" id="lock-go" onclick="lockSubmit()">Entrar</button>
     <span class="link" id="lock-toggle" onclick="toggleLockMode()">+ Crear nuevo usuario (clave maestra requerida)</span>
-    <div class="warn">🔒 Candado local: cada usuario tiene sus propios datos, guardados solo en <b>este dispositivo</b>. No es seguridad de nivel bancario y no sincroniza entre equipos.</div>
+    <div class="warn">🔒 Candado local: cada usuario tiene sus propios datos, separados de los demás, y sincronizados en tu cuenta (no solo en este dispositivo). No es seguridad de nivel bancario.</div>
   </div>
 </div>
 
@@ -690,14 +692,13 @@ Respuesta: A"></textarea>
 const STORAGE_KEY = 'clinicas6_data_v1';
 let DATA = null;
 
-function seedDefault(){
-  return { ciclo:{inicio:'', totalSemanas:18, numeroCiclo:6}, courses: [
-    mkCourse('Semiología Médica','Clínico — Ancla del ciclo',6),
-    mkCourse('Médico Paciente I','Humanístico + Clínico',6),
-    mkCourse('Diagnóstico por Imágenes y Laboratorio Clínico','Técnica Diagnóstica',6),
-    mkCourse('Informática Médica y Bioestadística','Herramienta Transversal',6),
-    mkCourse('Fisiopatología','Integrador Teórico',6),
-  ]};
+// Arma la cuenta nueva con los cursos oficiales del ciclo que elija el usuario (no
+// siempre Ciclo VI): la app sirve para cualquier ciclo de la malla, del I al internado.
+function seedDefault(numeroCiclo){
+  const n = Math.max(1, Math.min(MALLA_CURRICULAR.length, numeroCiclo||6));
+  const malla = MALLA_CURRICULAR[n-1];
+  return { ciclo:{inicio:'', totalSemanas:18, numeroCiclo:n},
+    courses: malla.cursos.map(cu=>mkCourse(cu.nombre, cu.tipo, n)) };
 }
 function mkCourse(nombre,tipo,ciclo){
   return {id:'c'+Math.random().toString(36).slice(2,9), nombre, tipo, ciclo:ciclo||null,
@@ -894,7 +895,7 @@ function updateHeaderTitle(){
   const c = MALLA_CURRICULAR[getCicloActualIndex()-1];
   const elT = document.getElementById('app-title');
   if(elT) elT.textContent = '🩺 Ciclo '+c.roman+' — Año '+c.anio;
-  document.title = 'Ciclo '+c.roman+' · UPAO';
+  document.title = 'MYCI · Ciclo '+c.roman;
 }
 function configMalla(){
   const cur = getCicloActualIndex();
@@ -2772,12 +2773,20 @@ function populateUserSelect(users){
   const last = localStorage.getItem(CURRENT_USER_KEY);
   if(last && users.some(u=>u.user===last)) sel.value=last;
 }
+// Cada usuario nuevo elige su propio ciclo (I al internado) — la app arma sus cursos
+// oficiales según ese ciclo, no siempre los de Ciclo VI.
+function populateCicloSelect(){
+  const sel=document.getElementById('lock-newciclo');
+  if(sel.options.length) return; // ya poblado, no hace falta repetirlo cada vez que se abre el candado
+  sel.innerHTML = MALLA_CURRICULAR.map((c,i)=>`<option value="${i+1}">Ciclo ${c.roman} — Año ${c.anio}</option>`).join('');
+  sel.value = '6';
+}
 function toggleLockMode(){ LOCK_MODE = LOCK_MODE==='login' ? 'create' : 'login'; renderLockMode(); }
 function renderLockMode(){
   const isCreate = LOCK_MODE==='create';
   document.getElementById('lock-login-fields').style.display = isCreate?'none':'block';
   document.getElementById('lock-create-fields').style.display = isCreate?'block':'none';
-  document.getElementById('lock-title').textContent = isCreate?'Crear nuevo usuario':'Clínicas 6to Ciclo';
+  document.getElementById('lock-title').textContent = isCreate?'Crear nuevo usuario':'MYCI';
   document.getElementById('lock-sub').textContent = isCreate?'Requiere la clave maestra de José':'Elige tu usuario para entrar';
   document.getElementById('lock-go').textContent = isCreate?'Crear y entrar':'Entrar';
   document.getElementById('lock-toggle').textContent = isCreate?'← Volver a iniciar sesión':'+ Crear nuevo usuario (clave maestra requerida)';
@@ -2786,6 +2795,7 @@ function renderLockMode(){
 async function showLock(){
   const users = await ensureDefaultUsers();
   populateUserSelect(users);
+  populateCicloSelect();
   LOCK_MODE='login';
   renderLockMode();
   document.getElementById('lock-pass').value='';
@@ -2797,13 +2807,13 @@ async function showLock(){
   document.getElementById('lock-pass').focus();
 }
 function hideLock(){ document.getElementById('lockscreen').classList.remove('show'); }
-async function loginAs(user, fresh, uid){
+async function loginAs(user, fresh, uid, numeroCiclo){
   CURRENT_USER = user;
   CURRENT_UID = uid || null;
   localStorage.setItem(CURRENT_USER_KEY, user);
   if(CURRENT_UID) sessionStorage.setItem('clinicas6_unlocked_uid', CURRENT_UID);
   else sessionStorage.removeItem('clinicas6_unlocked_uid');
-  DATA = fresh ? seedDefault() : await loadFor(user, CURRENT_UID);
+  DATA = fresh ? seedDefault(numeroCiclo) : await loadFor(user, CURRENT_UID);
   syncCoursesForCiclo(getCicloActualIndex());
   save();
   sessionStorage.setItem('clinicas6_unlocked_user', user);
@@ -2831,12 +2841,13 @@ async function lockSubmit(){
       if(users.some(u=>u.user.toLowerCase()===newUser.toLowerCase())){ err.textContent='Ese usuario ya existe.'; return; }
       if(pw.length<4){ err.textContent='La contraseña debe tener al menos 4 caracteres.'; return; }
       if(pw!==pw2){ err.textContent='Las contraseñas no coinciden.'; return; }
+      const numeroCiclo = parseInt(document.getElementById('lock-newciclo').value) || 6;
       const salt=randHex(8); const hash=await hashPw(pw,salt);
       users.push({user:newUser, salt, hash});
       usersSet(users);
       await fbAuthReady();
       const fbUser = await withTimeout(fbSignInOrCreate(newUser, pw), 6000);
-      await loginAs(newUser, true, fbUser?fbUser.uid:null);
+      await loginAs(newUser, true, fbUser?fbUser.uid:null, numeroCiclo);
     }else{
       const user = document.getElementById('lock-user-select').value;
       const pw = document.getElementById('lock-pass').value;
@@ -3090,7 +3101,7 @@ function claseEvent(cl){
   const start=nextOccurrence(cl.dia, ih, im);
   const end=new Date(start); end.setHours(fh,fm,0,0);
   if(end<=start) end.setTime(start.getTime()+60*60000);
-  return {title:cl.nombre, loc:cl.aula||'', desc:'Clase — Clínicas 6to Ciclo', start, end, rrule:'FREQ=WEEKLY;BYDAY='+cl.dia};
+  return {title:cl.nombre, loc:cl.aula||'', desc:'Clase — MYCI', start, end, rrule:'FREQ=WEEKLY;BYDAY='+cl.dia};
 }
 function openHorario(){ ensureHorario(); renderHorarioList(); document.getElementById('modal-horario').classList.add('show'); }
 function closeHorario(){ document.getElementById('modal-horario').classList.remove('show'); }
