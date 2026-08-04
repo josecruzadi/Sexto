@@ -1,6 +1,6 @@
-# 🩺 Clínicas — Plataforma de Estudio (UPAO · Medicina Humana)
+# 🩺 MYCI — Plataforma de Estudio (UPAO · Medicina Humana)
 
-App web para acompañarte durante toda la carrera de Medicina Humana: sube el sílabo de cada curso, arma el plan de estudio por semana, lleva tus notas ponderadas y sigue tu avance por los 14 ciclos de la malla curricular.
+App web para acompañarte durante **toda** la carrera de Medicina Humana, no solo un ciclo puntual: sube el sílabo de cada curso, arma el plan de estudio por semana, lleva tus notas ponderadas y sigue tu avance por los 14 ciclos de la malla curricular. Sirve para cualquier estudiante en cualquier ciclo — cada cuenta elige el suyo al crearse.
 
 ## 📲 Cómo publicarla en GitHub Pages
 
@@ -12,12 +12,13 @@ App web para acompañarte durante toda la carrera de Medicina Humana: sube el s�
 ## ✨ Cómo funciona
 
 **1. Inicia sesión**
-- La app tiene login multiusuario: cada cuenta guarda sus propios datos, totalmente separados de las demás en el mismo dispositivo.
-- Crear una cuenta nueva requiere una clave maestra (solo la conoce el administrador de la app).
+- La app tiene login multiusuario: cada cuenta guarda sus propios datos, totalmente separados de las demás, y sincronizados en la nube por cuenta (ver más abajo).
+- Crear una cuenta nueva requiere una clave maestra (solo la conoce el administrador de la app) y elegir **en qué ciclo vas** (I al internado) — la app arma automáticamente los cursos oficiales de ese ciclo, no siempre los mismos.
 
 **2. Mi Camino — ubica tu ciclo en la carrera**
 - Un mapa tipo videojuego con los 14 ciclos de la malla curricular oficial de Medicina Humana (362 créditos en total): completados, el actual y los que faltan, con sus cursos y créditos.
 - Al cambiar de ciclo, los cursos del home se actualizan solos según la malla — puedes agregarlos o quitarlos, pero siempre eligiéndolos de la malla oficial, no con texto libre.
+- Cada cuenta sigue su propio avance de forma independiente: sirve igual para alguien en Ciclo II que para alguien en Ciclo XII.
 
 **3. Sube el sílabo de cada curso**
 - Entra al curso → "Subir sílabo" → PDF o Word (.docx).
@@ -64,4 +65,4 @@ Ya tiene backend real (Firebase: Auth + Firestore) para sincronizar cuentas entr
 ...eso son pasos adicionales sobre lo que ya existe. Avísame cuando quieras dar ese salto y lo planeamos.
 
 ---
-*Hecho para José · Facultad de Medicina Humana, UPAO*
+*MYCI — Hecho para los estudiantes de Medicina Humana, UPAO*
