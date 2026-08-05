@@ -360,6 +360,24 @@ input,select,textarea{background:var(--card);color:var(--ink)}
 .res-tema .rc{font-size:12.5px;color:var(--ink);margin-top:5px;white-space:pre-wrap;line-height:1.5}
 .res-tema .rtemas{font-size:11.5px;color:var(--grey);margin-top:4px}
 
+/* Guía de estudio renderizada como documento (HTML generado), en vez de texto plano */
+.studydoc{font-size:13px;color:var(--ink);line-height:1.6}
+.studydoc h3{font-size:14.5px;font-weight:800;color:var(--heading);margin:16px 0 6px;padding-bottom:5px;border-bottom:2px solid var(--em)}
+.studydoc h3:first-child{margin-top:0}
+.studydoc h4{font-size:12.5px;font-weight:800;color:var(--em2);margin:12px 0 4px;text-transform:uppercase;letter-spacing:.04em}
+.studydoc p{margin:6px 0}
+.studydoc ul,.studydoc ol{margin:4px 0 10px 18px;padding:0}
+.studydoc li{margin:3px 0}
+.studydoc strong{color:var(--heading)}
+.studydoc .tablewrap{overflow-x:auto;margin:8px 0 14px}
+.studydoc table{width:100%;border-collapse:collapse;font-size:12px;min-width:340px}
+.studydoc th,.studydoc td{border:1px solid var(--line);padding:5px 8px;text-align:left;vertical-align:top}
+.studydoc th{background:var(--bg);font-weight:800;color:var(--heading)}
+.studydoc .callout{background:var(--amberbg);border:1px solid var(--amber);border-radius:9px;padding:8px 10px;margin:10px 0;font-size:12px;color:var(--ink)}
+.studydoc .callout b{color:var(--amber)}
+.sg-section-lbl{font-size:12px;font-weight:800;color:var(--em2);text-transform:uppercase;letter-spacing:.06em;margin:14px 0 4px}
+.sg-section-lbl:first-child{margin-top:0}
+
 </style>
 </head>
 <body>
@@ -601,6 +619,15 @@ Respuesta: A"></textarea>
       <button class="cancel" onclick="closeHorario()">Cerrar</button>
       <button class="confirm" onclick="horarioToICS()">⬇ Descargar horario .ics</button>
     </div>
+  </div>
+</div>
+
+<!-- MODAL: Guía de estudio de una semana (vista tipo documento) -->
+<div class="modal-overlay" id="modal-studyguide">
+  <div class="modal modal-wrap" style="max-width:720px">
+    <button class="closex" aria-label="Cerrar" onclick="closeStudyGuide()">✕</button>
+    <h3 id="studyguide-title">📖 Guía de estudio</h3>
+    <div id="studyguide-body" style="max-height:70vh;overflow-y:auto;margin-top:10px"></div>
   </div>
 </div>
 
@@ -1545,6 +1572,7 @@ function renderWeekHTML(courseId, w, isCurrent){
     </div>
     <div class="week-body">
       <ul class="temas-list">${w.temas.map(t=>`<li>${escapeHtml(t)}</li>`).join('')}</ul>
+      ${(w.resumen&&w.resumen.trim())||(w.guiaPre&&w.guiaPre.trim())||(w.guiaPost&&w.guiaPost.trim())?`<button class="addqbtn" onclick="openStudyGuide('${courseId}','${w.id}')" style="border-style:solid;color:var(--em)">📖 Ver guía de estudio de esta semana</button>`:''}
       <div class="slides-bar">
         <label class="slides-up" for="slides-in-${w.id}">${w.slidesText?'📎 Diapositivas ✓'+((w.slidesFiles&&w.slidesFiles.length)?' ('+w.slidesFiles.length+')':''):'📎 Subir diapositivas (PPT/PDF)'}</label>
         <input type="file" id="slides-in-${w.id}" accept=".pptx,.pdf,application/pdf" style="display:none" onchange="handleSlides('${courseId}','${w.id}',this)">
@@ -1589,6 +1617,27 @@ function renderWeekHTML(courseId, w, isCurrent){
     </div>
   </div>`;
 }
+// Los resúmenes/guías escritos a mano son texto plano de siempre; los generados como
+// guía de estudio vienen en HTML (empiezan con una etiqueta). Detectamos cuál es cuál
+// para no romper nada de lo que ya tenían escrito los usuarios.
+function renderRichText(text){
+  const t = String(text||'').trim();
+  if(!t) return '';
+  if(t.startsWith('<')) return `<div class="studydoc">${t}</div>`;
+  return `<div class="rc">${escapeHtml(t)}</div>`;
+}
+function openStudyGuide(courseId, wid){
+  const c = DATA.courses.find(x=>x.id===courseId);
+  const w = c.semanas.find(x=>x.id===wid);
+  document.getElementById('studyguide-title').textContent = '📖 Semana '+w.numero+(w.titulo?' — '+w.titulo:'');
+  const sections = [];
+  if(w.guiaPre && w.guiaPre.trim()) sections.push('<div class="sg-section-lbl">🔑 Antes de la clase</div>'+renderRichText(w.guiaPre));
+  if(w.resumen && w.resumen.trim()) sections.push('<div class="sg-section-lbl">📝 Resumen</div>'+renderRichText(w.resumen));
+  if(w.guiaPost && w.guiaPost.trim()) sections.push('<div class="sg-section-lbl">🔁 Repaso post-clase</div>'+renderRichText(w.guiaPost));
+  document.getElementById('studyguide-body').innerHTML = sections.join('') || '<div class="hint">Todavía no hay resumen ni guía para esta semana. Escríbelos o genéralos con IA en las pestañas de abajo.</div>';
+  document.getElementById('modal-studyguide').classList.add('show');
+}
+function closeStudyGuide(){ document.getElementById('modal-studyguide').classList.remove('show'); }
 function renderQList(courseId,w){
   if(!w.banco.length) return '';
   return w.banco.map(q=>`<div class="qitem">
@@ -2952,8 +3001,10 @@ async function genSummaryAI(courseId, wid){
   if(!ensureKey()) return;
   const st=document.getElementById('slides-status-'+wid); if(st) st.textContent='✨ Generando resumen con IA...';
   try{
-    const prompt='A partir del siguiente contenido de diapositivas de una clase de medicina, redacta un RESUMEN de estudio en español, claro y bien organizado: puntos clave, definiciones y datos importantes, con viñetas cuando ayude. No inventes información que no esté presente.\n\nCONTENIDO:\n"""\n'+w.slidesText.slice(0,12000)+'\n"""';
-    const out=await aiComplete(prompt, 1500);
+    const prompt='A partir del siguiente contenido de diapositivas de una clase de medicina, redacta un RESUMEN de estudio en español, claro y bien organizado, como una guía de estudio (no un bloque de texto plano). No inventes información que no esté presente.\n'
+      + 'Devuelve SOLO HTML (sin markdown, sin ```), usando ÚNICAMENTE estas etiquetas, sin atributos ni comillas: <h3> para secciones, <h4> para subsecciones, <p> para párrafos, <ul>/<li> para viñetas, <table>/<tr>/<th>/<td> para comparaciones o valores normales, <strong> para resaltar términos clave.\n\nCONTENIDO:\n"""\n'+w.slidesText.slice(0,12000)+'\n"""';
+    let out=await aiComplete(prompt, 2200);
+    out=out.replace(/^```(?:html)?\s*/i,'').replace(/```\s*$/,'').trim();
     if(w.resumen && w.resumen.trim() && !confirm('Ya hay un resumen en esta semana. ¿Reemplazarlo con el de IA?')){ if(st) st.textContent=''; return; }
     w.resumen=out; save(); renderCourse(courseId);
     setTimeout(()=>{ const wk=document.getElementById('week-'+wid); if(wk){ wk.classList.add('open'); } },50);
@@ -2989,10 +3040,11 @@ async function genGuiaAI(courseId, wid){
   if(!ensureKey()) return;
   const st=document.getElementById('guia-status-'+wid); if(st) st.textContent='✨ Generando guía de estudio...';
   try{
-    const prompt='A partir del siguiente contenido de una clase de medicina, genera una guía de estudio en español con DOS secciones. '
-      + 'Devuelve EXCLUSIVAMENTE JSON válido (sin markdown): {"preClase":"...","postClase":"..."}.\n'
-      + '- "preClase": viñetas ("- ") con los conceptos, definiciones o bases (anatomía/fisiología/farmacología previa, etc.) que el estudiante DEBE saber SÍ O SÍ antes de entrar a esta clase para entenderla bien.\n'
-      + '- "postClase": viñetas ("- ") con un repaso posterior a la clase: los puntos más importantes para reforzar y lo que más suele salir en examen sobre este tema.\n'
+    const prompt='A partir del siguiente contenido de una clase de medicina, genera una guía de estudio en español con DOS secciones, como una guía de estudio real (no texto plano). '
+      + 'Devuelve EXCLUSIVAMENTE JSON válido en una sola línea (sin markdown, sin saltos de línea reales dentro de los valores — todo el HTML en una sola línea por campo): {"preClase":"...","postClase":"..."}.\n'
+      + 'El HTML de cada campo debe usar ÚNICAMENTE estas etiquetas, SIN atributos y SIN comillas dobles dentro del HTML: <h4> para subtítulos, <ul>/<li> para viñetas, <p> para texto corrido, <strong> para resaltar términos clave.\n'
+      + '- "preClase": los conceptos, definiciones o bases (anatomía/fisiología/farmacología previa, etc.) que el estudiante DEBE saber SÍ O SÍ antes de entrar a esta clase para entenderla bien.\n'
+      + '- "postClase": un repaso posterior a la clase: los puntos más importantes para reforzar y lo que más suele salir en examen sobre este tema.\n'
       + 'No inventes información que no esté implícita en el contenido.\n\nCONTENIDO:\n"""\n'+fuente.slice(0,12000)+'\n"""';
     let out=await aiComplete(prompt, 1800);
     out=out.replace(/^```(?:json)?\s*/i,'').replace(/```\s*$/,'').trim();
@@ -3217,7 +3269,7 @@ function examScopeResumen(courseId, exId){
     <div class="res-tema">
       <div class="rt">Semana ${w.numero}${w.titulo?' — '+escapeHtml(w.titulo):''}</div>
       ${w.temas.length?`<div class="rtemas">${w.temas.map(escapeHtml).join(' · ')}</div>`:''}
-      ${w.resumen&&w.resumen.trim()?`<div class="rc">${escapeHtml(w.resumen)}</div>`:'<div class="rtemas">— sin resumen aún —</div>'}
+      ${w.resumen&&w.resumen.trim()?renderRichText(w.resumen):'<div class="rtemas">— sin resumen aún —</div>'}
     </div>`).join('') || '<div class="hint">Sin semanas.</div>';
   document.getElementById('modal-resumen').classList.add('show');
 }
