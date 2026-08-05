@@ -3072,11 +3072,12 @@ async function genGuiaAI(courseId, wid){
   if(!ensureKey()) return;
   const st=document.getElementById('guia-status-'+wid); if(st) st.textContent='✨ Generando guía de estudio...';
   try{
-    const prompt='A partir del siguiente contenido de una clase de medicina, genera una guía de estudio en español con DOS secciones, como una guía de estudio real (no texto plano). '
+    const prompt='A partir del siguiente contenido de una clase de medicina, genera una guía de estudio en español con DOS secciones. '
+      + 'MUY IMPORTANTE: cada punto debe incluir la RESPUESTA/explicación real, no solo decir qué repasar. Mal ejemplo: "Repasa los focos de auscultación". Bien: "Los focos de auscultación son: aórtico (2° EIC derecho), pulmonar (2° EIC izquierdo), tricúspide (4°-5° EIC izquierdo) y mitral (5° EIC línea medioclavicular)". El estudiante debe poder aprender leyendo la guía, sin tener que ir a buscar la respuesta a otro lado.\n'
       + 'Devuelve EXCLUSIVAMENTE JSON válido en una sola línea (sin markdown, sin saltos de línea reales dentro de los valores — todo el HTML en una sola línea por campo): {"preClase":"...","postClase":"..."}.\n'
-      + 'El HTML de cada campo debe usar ÚNICAMENTE estas etiquetas, SIN atributos y SIN comillas dobles dentro del HTML: <h4> para subtítulos, <ul>/<li> para viñetas, <p> para texto corrido, <strong> para resaltar términos clave.\n'
-      + '- "preClase": los conceptos, definiciones o bases (anatomía/fisiología/farmacología previa, etc.) que el estudiante DEBE saber SÍ O SÍ antes de entrar a esta clase para entenderla bien.\n'
-      + '- "postClase": un repaso posterior a la clase: los puntos más importantes para reforzar y lo que más suele salir en examen sobre este tema.\n'
+      + 'El HTML de cada campo debe usar ÚNICAMENTE estas etiquetas, SIN atributos y SIN comillas dobles dentro del HTML: <h4> para subtítulos, <ul>/<li> para viñetas (usa <strong>término o pregunta:</strong> seguido de la respuesta real), <p> para texto corrido, <strong> para resaltar términos clave.\n'
+      + '- "preClase": explica en 2-4 puntos los conceptos/bases (anatomía/fisiología/farmacología previa) que el estudiante necesita para entender esta clase — con la explicación real, no solo el nombre del tema.\n'
+      + '- "postClase": 4-6 preguntas de repaso tipo "pregunta: respuesta", con las respuestas reales más probables de examen sobre este tema.\n'
       + 'No inventes información que no esté implícita en el contenido.\n\nCONTENIDO:\n"""\n'+fuente.slice(0,12000)+'\n"""';
     let out=await aiComplete(prompt, 1800);
     out=out.replace(/^```(?:json)?\s*/i,'').replace(/```\s*$/,'').trim();
